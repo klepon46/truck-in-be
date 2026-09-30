@@ -47,7 +47,10 @@ func NewRouter(dependencies Dependencies) *gin.Engine {
 	router.SetTrustedProxies(nil)
 	router.Use(gin.Recovery())
 	router.GET("/health", health(dependencies.Database))
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	router.GET("/swagger-ui/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	router.GET("/swagger/*any", func(c *gin.Context) {
+		c.Redirect(http.StatusPermanentRedirect, "/swagger-ui"+c.Param("any"))
+	})
 
 	api := router.Group("/api/v1")
 	api.Use(auth.Authenticate(dependencies.JWTSecret))

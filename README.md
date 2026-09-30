@@ -167,7 +167,7 @@ Successful list responses contain `data` and `pagination`. API errors use this s
 
 ### Swagger
 
-After startup, open `http://localhost:8105/swagger/index.html`. Use **Authorize** to provide `Bearer <Auth Service JWT>` for protected routes. The generated OpenAPI document is available at `/swagger/doc.json`.
+After startup, open `http://localhost:8105/swagger-ui/index.html`. Use **Authorize** to provide `Bearer <Auth Service JWT>` for protected routes. The generated OpenAPI document is available at `/swagger-ui/doc.json`. Legacy `/swagger/` paths permanently redirect to `/swagger-ui/`.
 
 Regenerate committed Swagger files after changing the HTTP contract:
 

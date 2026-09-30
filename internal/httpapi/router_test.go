@@ -56,7 +56,7 @@ func TestCSVValuePreventsFormulaExecution(t *testing.T) {
 func TestRouterServesSwaggerUI(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	request := httptest.NewRequest(http.MethodGet, "/swagger/index.html", nil)
+	request := httptest.NewRequest(http.MethodGet, "/swagger-ui/index.html", nil)
 	response := httptest.NewRecorder()
 
 	NewRouter(Dependencies{Database: testPinger{}}).ServeHTTP(response, request)
@@ -69,7 +69,7 @@ func TestRouterServesSwaggerUI(t *testing.T) {
 func TestRouterServesGeneratedSwaggerDefinition(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	request := httptest.NewRequest(http.MethodGet, "/swagger/doc.json", nil)
+	request := httptest.NewRequest(http.MethodGet, "/swagger-ui/doc.json", nil)
 	response := httptest.NewRecorder()
 
 	NewRouter(Dependencies{Database: testPinger{}}).ServeHTTP(response, request)
@@ -110,5 +110,21 @@ func TestRouterServesGeneratedSwaggerDefinition(t *testing.T) {
 	}
 	if _, ok := properties["data"]; !ok {
 		t.Fatal("Swagger movement response does not document the data envelope")
+	}
+}
+
+func TestRouterRedirectsLegacySwaggerRoute(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	request := httptest.NewRequest(http.MethodGet, "/swagger/index.html", nil)
+	response := httptest.NewRecorder()
+
+	NewRouter(Dependencies{Database: testPinger{}}).ServeHTTP(response, request)
+
+	if response.Code != http.StatusPermanentRedirect {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusPermanentRedirect)
+	}
+	if location := response.Header().Get("Location"); location != "/swagger-ui/index.html" {
+		t.Fatalf("Location = %q, want %q", location, "/swagger-ui/index.html")
 	}
 }
