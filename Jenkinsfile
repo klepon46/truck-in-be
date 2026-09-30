@@ -25,7 +25,6 @@ pipeline {
         DEV_CONSUL_HTTP_ADDR       = 'http://172.16.17.17:8500'
         PROD_CONSUL_HTTP_ADDR      = 'http://172.16.17.17:8500'
         CONSUL_ALLOW_INSECURE_HTTP = 'true'
-        REGISTRY_CREDENTIALS_ID = 'truckin-registry'
     }
 
     stages {
@@ -123,22 +122,10 @@ pipeline {
 
         stage('Push Image') {
             steps {
-                script {
-                    def dockerConfig = pwd(tmp: true)
-                    withEnv(["DOCKER_CONFIG=${dockerConfig}"]) {
-                        try {
-                            withCredentials([usernamePassword(credentialsId: env.REGISTRY_CREDENTIALS_ID, usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASSWORD')]) {
-                                sh '''
-                                    set +x
-                                    echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" --username "$REGISTRY_USER" --password-stdin
-                                    docker push "$IMAGE_NAME"
-                                '''
-                            }
-                        } finally {
-                            sh 'rm -rf "$DOCKER_CONFIG"'
-                        }
-                    }
-                }
+                sh '''
+                    set -eu
+                    docker push "${IMAGE_NAME}"
+                '''
             }
         }
 

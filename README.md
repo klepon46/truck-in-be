@@ -205,7 +205,7 @@ docker run --rm --entrypoint /app/migrate <image> up
 
 Inject the Consul environment variables when running either binary in a container.
 
-`Jenkinsfile` accepts `TARGET_ENV=dev` or `TARGET_ENV=prod`. It regenerates and checks Swagger, builds the Docker test target, builds and tags the image, and pushes it with Jenkins-managed registry credentials. Development deployments run on the Jenkins agent with health checks and rollback behavior. Production requires manual approval and only publishes the image; production migration and deployment follow the production runbook.
+`Jenkinsfile` accepts `TARGET_ENV=dev` or `TARGET_ENV=prod`. It regenerates and checks Swagger, builds the Docker test target, builds and tags the image, and pushes it with the Jenkins agent's configured Docker registry authentication. Development deployments run on the Jenkins agent with health checks and rollback behavior. Production requires manual approval and only publishes the image; production migration and deployment follow the production runbook.
 
 ## Project Layout
 
