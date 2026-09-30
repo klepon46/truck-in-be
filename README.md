@@ -83,7 +83,7 @@ Use `dev/be/truckin-be-config` for development and `prod/be/truckin-be-config` f
 
 ```json
 {
-  "server_port": 8104,
+  "server_port": 8105,
   "postgres_dsn": "<postgresql-dsn>",
   "auth_jwt_hs256_secret": "<auth-service-hs256-secret>",
   "auth_permissions_claim": "<permissions-claim>",
@@ -167,7 +167,7 @@ Successful list responses contain `data` and `pagination`. API errors use this s
 
 ### Swagger
 
-After startup, open `http://localhost:8104/swagger/index.html`. Use **Authorize** to provide `Bearer <Auth Service JWT>` for protected routes. The generated OpenAPI document is available at `/swagger/doc.json`.
+After startup, open `http://localhost:8105/swagger/index.html`. Use **Authorize** to provide `Bearer <Auth Service JWT>` for protected routes. The generated OpenAPI document is available at `/swagger/doc.json`.
 
 Regenerate committed Swagger files after changing the HTTP contract:
 
@@ -197,7 +197,7 @@ Build the application image locally:
 docker build --tag truckin-be:local .
 ```
 
-The image contains `/app/server`, `/app/migrate`, and the migration files. It listens on port `8104` and includes a `/health` Docker health check. The default entrypoint starts the server. Run migrations with:
+The image contains `/app/server`, `/app/migrate`, and the migration files. It listens on port `8105` and includes a `/health` Docker health check. The default entrypoint starts the server. Run migrations with:
 
 ```text
 docker run --rm --entrypoint /app/migrate <image> up

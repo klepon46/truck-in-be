@@ -59,7 +59,7 @@ Use explicit dependencies, context-aware database calls, parameterized SQL, UTC 
 
 ## Success Criteria
 
-- `/health` is available on port `8104` after Consul configuration and PostgreSQL are ready.
+- `/health` is available on port `8105` after Consul configuration and PostgreSQL are ready.
 - Migrations create immutable movement transactions, unit snapshots, and sync-run audit records.
 - Backend validates HS256 JWTs and the specified UnitLog permissions.
 - Movement implementation later enforces the PRD transitions, idempotency, WO/SPP lifecycle, and UTC audit data atomically.

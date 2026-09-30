@@ -26,9 +26,9 @@ COPY --from=compile /out/migrate ./migrate
 COPY --from=compile /src/migrations ./migrations
 
 USER unitlog
-EXPOSE 8104
+EXPOSE 8105
 
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=12 \
-    CMD wget -q -O /dev/null http://127.0.0.1:8104/health || exit 1
+    CMD wget -q -O /dev/null http://127.0.0.1:8105/health || exit 1
 
 ENTRYPOINT ["/app/server"]

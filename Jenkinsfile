@@ -19,7 +19,7 @@ pipeline {
     environment {
         APP_NAME                = 'truckin-be'
         CONTAINER_NAME          = 'truckin-be'
-        APP_PORT                = '8104'
+        APP_PORT                = '8105'
         DEV_REGISTRY            = '172.16.17.17:5000'
         PROD_REGISTRY           = '172.16.17.19:5000'
         DEV_CONSUL_HTTP_ADDR       = 'http://172.16.17.17:8500'
@@ -148,7 +148,7 @@ pipeline {
                     run_container() {
                       docker run -d \
                         --name "${CONTAINER_NAME}" \
-                        --publish "${APP_PORT}:8104" \
+                        --publish "${APP_PORT}:${APP_PORT}" \
                         --env "CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}" \
                         --env "CONSUL_CONFIG_KEY=${CONSUL_CONFIG_KEY}" \
                         --env "CONSUL_ALLOW_INSECURE_HTTP=${CONSUL_ALLOW_INSECURE_HTTP}" \
@@ -240,7 +240,7 @@ pipeline {
                     fi
 
                     # Probe the current process rather than Docker's stale aggregate status.
-                    if ! docker exec "${CONTAINER_NAME}" wget -q -O /dev/null http://127.0.0.1:8104/health; then
+                    if ! docker exec "${CONTAINER_NAME}" wget -q -O /dev/null "http://127.0.0.1:${APP_PORT}/health"; then
                       docker logs --tail 100 "${CONTAINER_NAME}" || true
                       docker stop "${CONTAINER_NAME}" 2>/dev/null || true
                       docker rm "${CONTAINER_NAME}" 2>/dev/null || true
