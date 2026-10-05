@@ -5,12 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+
+	"truckin-be/internal/movement"
 )
 
 type testPinger struct {
@@ -126,5 +129,28 @@ func TestRouterRedirectsLegacySwaggerRoute(t *testing.T) {
 	}
 	if location := response.Header().Get("Location"); location != "/swagger-ui/index.html" {
 		t.Fatalf("Location = %q, want %q", location, "/swagger-ui/index.html")
+	}
+}
+
+func TestLogMovementFailureUsesSafeContext(t *testing.T) {
+	var output bytes.Buffer
+	originalLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&output, nil)))
+	defer slog.SetDefault(originalLogger)
+
+	logMovementFailure(movement.Input{
+		NoLambung:      "SAMT119",
+		Direction:      movement.DirectionOut,
+		OutDestination: movement.OutWorkshop,
+	}, errors.New("ensure Unit Lambung unit: call integration"))
+
+	entry := output.String()
+	for _, expected := range []string{"record movement failed", "SAMT119", "OUT", "BENGKEL_LUAR", "call integration"} {
+		if !strings.Contains(entry, expected) {
+			t.Fatalf("log entry %q does not contain %q", entry, expected)
+		}
+	}
+	if strings.Contains(strings.ToLower(entry), "idempotency") {
+		t.Fatalf("log entry contains idempotency material: %q", entry)
 	}
 }

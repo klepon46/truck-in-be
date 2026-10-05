@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"errors"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -176,11 +177,27 @@ func movementHandler(dependencies Dependencies) gin.HandlerFunc {
 			SPPNumber: request.SPPNumber, DriverID: request.DriverID, DriverName: request.DriverName, Note: request.Note,
 		}, actorID, actorName)
 		if err != nil {
+			logMovementFailure(movement.Input{
+				NoLambung:      request.NoLambung,
+				Direction:      request.Direction,
+				InCategory:     request.InCategory,
+				OutDestination: request.OutDestination,
+			}, err)
 			movementError(c, err)
 			return
 		}
 		c.JSON(http.StatusCreated, gin.H{"data": result})
 	}
+}
+
+func logMovementFailure(input movement.Input, err error) {
+	slog.Error("record movement failed",
+		"error", err,
+		"no_lambung", input.NoLambung,
+		"direction", input.Direction,
+		"in_category", input.InCategory,
+		"out_destination", input.OutDestination,
+	)
 }
 
 // dashboardHandler returns current active-unit totals.

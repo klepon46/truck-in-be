@@ -80,24 +80,24 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 		return Transaction{}, err
 	}
 	if existing, found, err := s.findByKey(ctx, s.db, idempotencyKey); err != nil {
-		return Transaction{}, err
+		return Transaction{}, fmt.Errorf("look up existing movement: %w", err)
 	} else if found {
 		return replay(existing, hash)
 	}
 
 	if s.refresher != nil {
 		if err := s.refresher.EnsureKnown(ctx, input.NoLambung); err != nil {
-			return Transaction{}, err
+			return Transaction{}, fmt.Errorf("refresh Unit Lambung snapshot: %w", err)
 		}
 	}
 	document, err := s.validateDocument(ctx, &input)
 	if err != nil {
-		return Transaction{}, err
+		return Transaction{}, fmt.Errorf("validate movement document: %w", err)
 	}
 
 	tx, err := s.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return Transaction{}, err
+		return Transaction{}, fmt.Errorf("start movement transaction: %w", err)
 	}
 	defer tx.Rollback()
 
@@ -106,10 +106,10 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 		return Transaction{}, ErrUnitNotFound
 	}
 	if err != nil {
-		return Transaction{}, err
+		return Transaction{}, fmt.Errorf("lock unit snapshot: %w", err)
 	}
 	if existing, found, err := s.findByKey(ctx, tx, idempotencyKey); err != nil {
-		return Transaction{}, err
+		return Transaction{}, fmt.Errorf("recheck existing movement: %w", err)
 	} else if found {
 		return replay(existing, hash)
 	}
@@ -118,7 +118,7 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 	}
 	if input.Direction == DirectionOut && input.OutDestination == OutCustomer {
 		if err := validateActiveSPP(ctx, tx, snapshot.CurrentTransactionID, input.SPPNumber, document); err != nil {
-			return Transaction{}, err
+			return Transaction{}, fmt.Errorf("validate active SPP: %w", err)
 		}
 	}
 
@@ -139,13 +139,13 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 				return replay(existing, hash)
 			}
 		}
-		return Transaction{}, err
+		return Transaction{}, fmt.Errorf("insert movement transaction: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE unit_snapshot SET current_transaction_id = $1 WHERE lambung_unit_id = $2`, transaction.ID, snapshot.ID); err != nil {
-		return Transaction{}, err
+		return Transaction{}, fmt.Errorf("update unit snapshot: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
-		return Transaction{}, err
+		return Transaction{}, fmt.Errorf("commit movement transaction: %w", err)
 	}
 	return transaction, nil
 }
@@ -160,19 +160,25 @@ func (s *Service) validateDocument(ctx context.Context, input *Input) (Document,
 	switch input.OutDestination {
 	case OutWorkshop:
 		document, err := s.documents.Workshop(ctx, input.WorkOrderNumber)
-		if err != nil || document.DriverName == "" {
+		if err != nil {
+			return Document{}, errors.Join(ErrExternalDocument, fmt.Errorf("validate workshop document: %w", err))
+		}
+		if document.DriverName == "" {
 			return Document{}, ErrExternalDocument
 		}
 		return document, nil
 	case OutFillingShed, OutCustomer:
 		document, err := s.documents.SPP(ctx, input.SPPNumber)
-		if err != nil || document.DriverName == "" {
+		if err != nil {
+			return Document{}, errors.Join(ErrExternalDocument, fmt.Errorf("validate SPP document: %w", err))
+		}
+		if document.DriverName == "" {
 			return Document{}, ErrExternalDocument
 		}
 		return document, nil
 	case OutOther:
 		if err := s.documents.Driver(ctx, input.DriverID, input.DriverName); err != nil {
-			return Document{}, ErrExternalDocument
+			return Document{}, errors.Join(ErrExternalDocument, fmt.Errorf("validate driver: %w", err))
 		}
 		return Document{DriverName: input.DriverName}, nil
 	default:
