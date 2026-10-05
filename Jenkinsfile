@@ -85,7 +85,7 @@ pipeline {
                       --env GOCACHE=/tmp/go-build \
                       --env GOMODCACHE=/tmp/go-mod \
                       golang:1.25-alpine \
-                      go run github.com/swaggo/swag/cmd/swag@v1.16.4 init --generalInfo main.go --dir ./cmd/server,./internal/httpapi,./internal/movement,./internal/operations --parseInternal --output ./docs
+                      go run -mod=readonly github.com/swaggo/swag/cmd/swag init --generalInfo main.go --dir ./cmd/server,./internal/httpapi,./internal/movement,./internal/operations --parseInternal --output ./docs
                     git diff --exit-code -- docs
                     docker build \
                       --file "${DOCKERFILE}" \
