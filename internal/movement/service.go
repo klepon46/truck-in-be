@@ -258,7 +258,7 @@ INSERT INTO movement_transactions (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, 0), NULLIF($10, ''),
     NULLIF($11, ''), NULLIF($12, ''), NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), $16, $17
-) RETURNING transaction_id, idempotency_key, request_hash, lambung_unit_id, no_lambung_snapshot,
+) RETURNING transaction_id, request_hash, lambung_unit_id, no_lambung_snapshot,
     no_polisi_snapshot, direction, in_category, out_destination, driver_id, driver_name_snapshot,
     work_order_number, spp_number, customer_id, customer_name_snapshot, note, actor_id,
     actor_name_snapshot, occurred_at`,
@@ -275,7 +275,7 @@ type queryer interface {
 func (s *Service) findByKey(ctx context.Context, query queryer, idempotencyKey string) (Transaction, bool, error) {
 	var transaction Transaction
 	err := query.GetContext(ctx, &transaction, `
-SELECT transaction_id, idempotency_key, request_hash, lambung_unit_id, no_lambung_snapshot,
+SELECT transaction_id, request_hash, lambung_unit_id, no_lambung_snapshot,
        no_polisi_snapshot, direction, in_category, out_destination, driver_id, driver_name_snapshot,
        work_order_number, spp_number, customer_id, customer_name_snapshot, note, actor_id,
        actor_name_snapshot, occurred_at
