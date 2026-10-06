@@ -259,6 +259,7 @@ func dashboardHandler(service *operations.Service) gin.HandlerFunc {
 		}
 		result, err := service.Dashboard(c.Request.Context())
 		if err != nil {
+			slog.Error("load dashboard failed", "error", err)
 			apiError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not load dashboard")
 			return
 		}

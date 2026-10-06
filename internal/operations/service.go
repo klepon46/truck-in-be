@@ -31,10 +31,10 @@ func NormalizePage(page, size int) Page {
 }
 
 type Dashboard struct {
-	TotalUnits    int `json:"totalUnits"`
-	UnitsIn       int `json:"unitsIn"`
-	UnitsOut      int `json:"unitsOut"`
-	UnitsNoStatus int `json:"unitsNoStatus"`
+	TotalUnits    int `db:"total_units" json:"totalUnits"`
+	UnitsIn       int `db:"units_in" json:"unitsIn"`
+	UnitsOut      int `db:"units_out" json:"unitsOut"`
+	UnitsNoStatus int `db:"units_no_status" json:"unitsNoStatus"`
 }
 
 type UnitFilter struct {
