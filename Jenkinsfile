@@ -129,6 +129,23 @@ pipeline {
             }
         }
 
+        stage('Apply Database Migrations') {
+            steps {
+                sh '''
+                    set -eu
+                    if ! docker run --rm \
+                      --env "CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}" \
+                      --env "CONSUL_CONFIG_KEY=${CONSUL_CONFIG_KEY}" \
+                      --env "CONSUL_ALLOW_INSECURE_HTTP=${CONSUL_ALLOW_INSECURE_HTTP}" \
+                      --entrypoint /app/migrate \
+                      "${IMAGE_NAME}" up; then
+                      echo "Migration failed; the current deployment was not changed"
+                      exit 1
+                    fi
+                '''
+            }
+        }
+
         stage('Deploy DEV Environment') {
             when {
                 expression { env.ENVIRONMENT == 'dev' }
@@ -152,6 +169,7 @@ pipeline {
                         --env "CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}" \
                         --env "CONSUL_CONFIG_KEY=${CONSUL_CONFIG_KEY}" \
                         --env "CONSUL_ALLOW_INSECURE_HTTP=${CONSUL_ALLOW_INSECURE_HTTP}" \
+                        --env "GIN_MODE=release" \
                         --restart unless-stopped \
                         "$1"
                     }
@@ -214,39 +232,6 @@ pipeline {
                     fi
 
                     echo "Development deployment is healthy: ${IMAGE_NAME}"
-                '''
-            }
-        }
-
-        stage('Apply DEV Database Migrations') {
-            when {
-                expression { env.ENVIRONMENT == 'dev' }
-            }
-            steps {
-                sh '''
-                    set -eu
-                    if ! docker run --rm \
-                      --env "CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}" \
-                      --env "CONSUL_CONFIG_KEY=${CONSUL_CONFIG_KEY}" \
-                      --env "CONSUL_ALLOW_INSECURE_HTTP=${CONSUL_ALLOW_INSECURE_HTTP}" \
-                      --entrypoint /app/migrate \
-                      "${IMAGE_NAME}" up; then
-                      # A failed migration may have partially changed the schema.
-                      # Do not restart the old image automatically in that state.
-                      docker stop "${CONTAINER_NAME}" 2>/dev/null || true
-                      docker rm "${CONTAINER_NAME}" 2>/dev/null || true
-                      echo "Migration failed. Candidate stopped; previous image retained for manual recovery: ${PREVIOUS_IMAGE:-none}"
-                      exit 1
-                    fi
-
-                    # Probe the current process rather than Docker's stale aggregate status.
-                    if ! docker exec "${CONTAINER_NAME}" wget -q -O /dev/null "http://127.0.0.1:${APP_PORT}/health"; then
-                      docker logs --tail 100 "${CONTAINER_NAME}" || true
-                      docker stop "${CONTAINER_NAME}" 2>/dev/null || true
-                      docker rm "${CONTAINER_NAME}" 2>/dev/null || true
-                      echo "Candidate is not healthy after migrations; previous image retained for manual recovery: ${PREVIOUS_IMAGE:-none}"
-                      exit 1
-                    fi
 
                     if [ -n "${PREVIOUS_IMAGE:-}" ] && [ "${PREVIOUS_IMAGE}" != "${IMAGE_NAME}" ]; then
                       docker image rm "${PREVIOUS_IMAGE}" 2>/dev/null || true
