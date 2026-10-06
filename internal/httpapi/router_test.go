@@ -50,6 +50,52 @@ func TestRouterHealthReturnsServiceUnavailableWhenDatabaseIsDown(t *testing.T) {
 	}
 }
 
+func TestRouterAllowsConfiguredOriginPreflight(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	request := httptest.NewRequest(http.MethodOptions, "/api/v1/dashboard", nil)
+	request.Header.Set("Origin", "http://172.16.17.17:3022")
+	request.Header.Set("Access-Control-Request-Method", http.MethodGet)
+	request.Header.Set("Access-Control-Request-Headers", "authorization")
+	response := httptest.NewRecorder()
+
+	NewRouter(Dependencies{
+		Database:           testPinger{},
+		CORSAllowedOrigins: []string{"http://172.16.17.17:3022"},
+	}).ServeHTTP(response, request)
+
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusNoContent)
+	}
+	if origin := response.Header().Get("Access-Control-Allow-Origin"); origin != "http://172.16.17.17:3022" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", origin)
+	}
+	if vary := response.Header().Get("Vary"); vary != "Origin" {
+		t.Fatalf("Vary = %q", vary)
+	}
+	if methods := response.Header().Get("Access-Control-Allow-Methods"); methods != "GET, POST, OPTIONS" {
+		t.Fatalf("Access-Control-Allow-Methods = %q", methods)
+	}
+}
+
+func TestRouterRejectsUnconfiguredOriginPreflight(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	request := httptest.NewRequest(http.MethodOptions, "/api/v1/dashboard", nil)
+	request.Header.Set("Origin", "http://untrusted.example")
+	response := httptest.NewRecorder()
+
+	NewRouter(Dependencies{
+		Database:           testPinger{},
+		CORSAllowedOrigins: []string{"http://172.16.17.17:3022"},
+	}).ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+	if origin := response.Header().Get("Access-Control-Allow-Origin"); origin != "" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want empty", origin)
+	}
+}
+
 func TestCSVValuePreventsFormulaExecution(t *testing.T) {
 	if got := csvValue("=HYPERLINK(\"https://example.test\")"); got != "'=HYPERLINK(\"https://example.test\")" {
 		t.Fatalf("csvValue() = %q", got)

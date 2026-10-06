@@ -34,19 +34,21 @@ type Pinger interface {
 }
 
 type Dependencies struct {
-	Database        Pinger
-	Movement        *movement.Service
-	Operations      *operations.Service
-	JWTSecret       []byte
-	PermissionClaim string
-	ActorIDClaim    string
-	ActorNameClaim  string
+	Database           Pinger
+	Movement           *movement.Service
+	Operations         *operations.Service
+	JWTSecret          []byte
+	PermissionClaim    string
+	ActorIDClaim       string
+	ActorNameClaim     string
+	CORSAllowedOrigins []string
 }
 
 func NewRouter(dependencies Dependencies) *gin.Engine {
 	router := gin.New()
 	router.SetTrustedProxies(nil)
 	router.Use(gin.Recovery())
+	router.Use(cors(dependencies.CORSAllowedOrigins))
 	router.GET("/health", health(dependencies.Database))
 	router.GET("/swagger-ui/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	router.GET("/swagger/*any", func(c *gin.Context) {
@@ -67,6 +69,44 @@ func NewRouter(dependencies Dependencies) *gin.Engine {
 	operationsAPI.GET("/transactions", transactionsHandler(dependencies.Operations))
 	operationsAPI.GET("/transactions/export", transactionsExportHandler(dependencies.Operations))
 	return router
+}
+
+func cors(origins []string) gin.HandlerFunc {
+	allowed := make(map[string]struct{}, len(origins))
+	for _, origin := range origins {
+		allowed[origin] = struct{}{}
+	}
+
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		if origin == "" {
+			c.Next()
+			return
+		}
+		if _, found := allowed[origin]; !found {
+			if c.Request.Method == http.MethodOptions {
+				c.AbortWithStatus(http.StatusForbidden)
+				return
+			}
+			c.Next()
+			return
+		}
+
+		c.Header("Access-Control-Allow-Origin", origin)
+		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Idempotency-Key")
+		c.Header("Vary", "Origin")
+		if c.Request.Method == http.MethodOptions {
+			if c.GetHeader("Access-Control-Request-Method") != http.MethodGet && c.GetHeader("Access-Control-Request-Method") != http.MethodPost {
+				c.AbortWithStatus(http.StatusMethodNotAllowed)
+				return
+			}
+			c.Status(http.StatusNoContent)
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
 }
 
 // health reports the service and database readiness.

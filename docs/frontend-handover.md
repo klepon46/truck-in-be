@@ -78,13 +78,9 @@ Display the stable `code` for client behavior and the `message` as a safe user-f
 
 ### Browser Origin Constraint
 
-UnitLog currently has no CORS middleware. A browser frontend served from a different origin, such as `http://localhost:3000`, cannot call this API directly.
+UnitLog allows browser requests only from origins configured in Consul under `cors_allowed_origins`. Development allows `http://172.16.17.17:3022`.
 
-Use one of these deployment approaches:
-
-- Serve the frontend through the same origin/reverse proxy as UnitLog.
-- Add an approved backend-for-frontend or reverse-proxy route.
-- Request a separate backend CORS implementation before using a cross-origin browser client.
+The frontend must send the Bearer token in `Authorization`; the backend responds to browser preflight requests for `GET` and `POST` API calls. New frontend origins must be added to the backend allowlist before deployment.
 
 ## API Client Shape
 

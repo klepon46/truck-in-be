@@ -21,24 +21,25 @@ const (
 )
 
 type Config struct {
-	ServerPort                 int    `json:"server_port" mapstructure:"server_port"`
-	PostgresDSN                string `json:"postgres_dsn" mapstructure:"postgres_dsn"`
-	AuthJWTHS256Secret         string `json:"auth_jwt_hs256_secret" mapstructure:"auth_jwt_hs256_secret"`
-	AuthPermissionsClaim       string `json:"auth_permissions_claim" mapstructure:"auth_permissions_claim"`
-	AuthActorIDClaim           string `json:"auth_actor_id_claim" mapstructure:"auth_actor_id_claim"`
-	AuthActorNameClaim         string `json:"auth_actor_name_claim" mapstructure:"auth_actor_name_claim"`
-	UnitSyncInterval           string `json:"unit_sync_interval" mapstructure:"unit_sync_interval"`
-	UnitSyncPageSize           int    `json:"unit_sync_page_size" mapstructure:"unit_sync_page_size"`
-	LambungAPIBaseURL          string `json:"lambung_api_base_url" mapstructure:"lambung_api_base_url"`
-	LambungServiceToken        string `json:"lambung_service_token" mapstructure:"lambung_service_token"`
-	SAOSAPIBaseURL             string `json:"saos_api_base_url" mapstructure:"saos_api_base_url"`
-	SAOSServiceToken           string `json:"saos_service_token" mapstructure:"saos_service_token"`
-	WorkshopAPIBaseURL         string `json:"workshop_api_base_url" mapstructure:"workshop_api_base_url"`
-	WorkshopServiceToken       string `json:"workshop_service_token" mapstructure:"workshop_service_token"`
-	DriverAPIBaseURL           string `json:"driver_api_base_url" mapstructure:"driver_api_base_url"`
-	DriverServiceToken         string `json:"driver_service_token" mapstructure:"driver_service_token"`
-	HTTPClientConnectTimeoutMS int    `json:"http_client_connect_timeout_ms" mapstructure:"http_client_connect_timeout_ms"`
-	HTTPClientRequestTimeoutMS int    `json:"http_client_request_timeout_ms" mapstructure:"http_client_request_timeout_ms"`
+	ServerPort                 int      `json:"server_port" mapstructure:"server_port"`
+	PostgresDSN                string   `json:"postgres_dsn" mapstructure:"postgres_dsn"`
+	AuthJWTHS256Secret         string   `json:"auth_jwt_hs256_secret" mapstructure:"auth_jwt_hs256_secret"`
+	AuthPermissionsClaim       string   `json:"auth_permissions_claim" mapstructure:"auth_permissions_claim"`
+	AuthActorIDClaim           string   `json:"auth_actor_id_claim" mapstructure:"auth_actor_id_claim"`
+	AuthActorNameClaim         string   `json:"auth_actor_name_claim" mapstructure:"auth_actor_name_claim"`
+	CORSAllowedOrigins         []string `json:"cors_allowed_origins" mapstructure:"cors_allowed_origins"`
+	UnitSyncInterval           string   `json:"unit_sync_interval" mapstructure:"unit_sync_interval"`
+	UnitSyncPageSize           int      `json:"unit_sync_page_size" mapstructure:"unit_sync_page_size"`
+	LambungAPIBaseURL          string   `json:"lambung_api_base_url" mapstructure:"lambung_api_base_url"`
+	LambungServiceToken        string   `json:"lambung_service_token" mapstructure:"lambung_service_token"`
+	SAOSAPIBaseURL             string   `json:"saos_api_base_url" mapstructure:"saos_api_base_url"`
+	SAOSServiceToken           string   `json:"saos_service_token" mapstructure:"saos_service_token"`
+	WorkshopAPIBaseURL         string   `json:"workshop_api_base_url" mapstructure:"workshop_api_base_url"`
+	WorkshopServiceToken       string   `json:"workshop_service_token" mapstructure:"workshop_service_token"`
+	DriverAPIBaseURL           string   `json:"driver_api_base_url" mapstructure:"driver_api_base_url"`
+	DriverServiceToken         string   `json:"driver_service_token" mapstructure:"driver_service_token"`
+	HTTPClientConnectTimeoutMS int      `json:"http_client_connect_timeout_ms" mapstructure:"http_client_connect_timeout_ms"`
+	HTTPClientRequestTimeoutMS int      `json:"http_client_request_timeout_ms" mapstructure:"http_client_request_timeout_ms"`
 }
 
 func Load(ctx context.Context) (Config, error) {
@@ -173,6 +174,19 @@ func (c Config) Validate() error {
 	}
 	if c.AuthActorIDClaim == "" || c.AuthActorNameClaim == "" {
 		return errors.New("auth actor claims are required")
+	}
+	if err := validateCORSOrigins(c.CORSAllowedOrigins); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateCORSOrigins(origins []string) error {
+	for _, origin := range origins {
+		parsed, err := url.ParseRequestURI(origin)
+		if err != nil || parsed.Host == "" || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+			return fmt.Errorf("invalid CORS origin %q", origin)
+		}
 	}
 	return nil
 }

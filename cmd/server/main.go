@@ -69,6 +69,7 @@ func main() {
 			Database: db, Movement: movementService, Operations: operationsService,
 			JWTSecret: []byte(applicationConfig.AuthJWTHS256Secret), PermissionClaim: applicationConfig.AuthPermissionsClaim,
 			ActorIDClaim: applicationConfig.AuthActorIDClaim, ActorNameClaim: applicationConfig.AuthActorNameClaim,
+			CORSAllowedOrigins: applicationConfig.CORSAllowedOrigins,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

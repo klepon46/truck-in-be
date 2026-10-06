@@ -18,6 +18,7 @@ func TestDecodeConfigReadsConsulJSON(t *testing.T) {
 		"auth_permissions_claim": "permissions",
 		"auth_actor_id_claim": "sub",
 		"auth_actor_name_claim": "name",
+		"cors_allowed_origins": ["http://172.16.17.17:3022"],
 		"unit_sync_interval": "1m",
 		"unit_sync_page_size": 100,
 		"lambung_api_base_url": "https://lambung.example.internal",
@@ -40,6 +41,9 @@ func TestDecodeConfigReadsConsulJSON(t *testing.T) {
 	}
 	if config.HTTPClientConnectTimeoutMS != 1000 || config.HTTPClientRequestTimeoutMS != 5000 {
 		t.Fatalf("decodeConfig() timeouts = %d, %d", config.HTTPClientConnectTimeoutMS, config.HTTPClientRequestTimeoutMS)
+	}
+	if len(config.CORSAllowedOrigins) != 1 || config.CORSAllowedOrigins[0] != "http://172.16.17.17:3022" {
+		t.Fatalf("decodeConfig() CORS origins = %#v", config.CORSAllowedOrigins)
 	}
 }
 
@@ -69,6 +73,7 @@ func TestConfigValidateAcceptsRequiredValues(t *testing.T) {
 		AuthPermissionsClaim: "permissions",
 		AuthActorIDClaim:     "sub",
 		AuthActorNameClaim:   "name",
+		CORSAllowedOrigins:   []string{"http://172.16.17.17:3022"},
 	}
 
 	if err := config.Validate(); err != nil {
@@ -86,6 +91,22 @@ func TestConfigValidateRequiresActorClaims(t *testing.T) {
 
 	if err := config.Validate(); err == nil {
 		t.Fatal("Validate() accepted missing actor claims")
+	}
+}
+
+func TestConfigValidateRejectsOriginWithPath(t *testing.T) {
+	config := Config{
+		ServerPort:           8104,
+		PostgresDSN:          "postgres://example",
+		AuthJWTHS256Secret:   "test-secret",
+		AuthPermissionsClaim: "permissions",
+		AuthActorIDClaim:     "sub",
+		AuthActorNameClaim:   "name",
+		CORSAllowedOrigins:   []string{"http://172.16.17.17:3022/app"},
+	}
+
+	if err := config.Validate(); err == nil {
+		t.Fatal("Validate() accepted a CORS origin with a path")
 	}
 }
 
