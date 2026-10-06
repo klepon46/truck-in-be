@@ -169,7 +169,7 @@ pipeline {
                         --env "CONSUL_HTTP_ADDR=${CONSUL_HTTP_ADDR}" \
                         --env "CONSUL_CONFIG_KEY=${CONSUL_CONFIG_KEY}" \
                         --env "CONSUL_ALLOW_INSECURE_HTTP=${CONSUL_ALLOW_INSECURE_HTTP}" \
-                        --env "GIN_MODE=release" \
+                        --env "GIN_MODE=debug" \
                         --restart unless-stopped \
                         "$1"
                     }
