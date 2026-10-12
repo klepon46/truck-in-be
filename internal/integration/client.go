@@ -78,20 +78,54 @@ func (c *Client) SPP(ctx context.Context, number string) (movement.Document, err
 	return movement.Document{}, ErrNotFound
 }
 
-func (c *Client) Driver(ctx context.Context, id int64, name string) error {
+type ActiveDriver struct {
+	ID         int64  `json:"id"`
+	DriverName string `json:"driverName"`
+}
+
+func (c *Client) ActiveDrivers(ctx context.Context, name string) ([]ActiveDriver, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, errors.New("driver name is required")
+	}
+
 	var response struct {
-		Data []struct {
+		Success *bool `json:"success"`
+		Data    *[]struct {
 			ID         json.RawMessage `json:"id"`
 			DriverName string          `json:"driverName"`
 			ResignDate *string         `json:"resignDate"`
 		} `json:"data"`
 	}
-	if err := c.getJSON(ctx, c.config.DriverBaseURL, c.config.DriverToken, "/active-drivers?name="+url.QueryEscape(name), &response); err != nil {
+	path := "/internal/v1/active-drivers?name=" + url.QueryEscape(name)
+	if err := c.getJSON(ctx, c.config.DriverBaseURL, c.config.DriverToken, path, &response); err != nil {
+		return nil, err
+	}
+	if response.Success == nil || !*response.Success || response.Data == nil {
+		return nil, errors.New("invalid active drivers response")
+	}
+
+	drivers := make([]ActiveDriver, 0, len(*response.Data))
+	for _, driver := range *response.Data {
+		id, err := parseID(driver.ID)
+		name := strings.TrimSpace(driver.DriverName)
+		if err != nil || id < 1 || name == "" {
+			return nil, errors.New("invalid active drivers response")
+		}
+		if driver.ResignDate == nil || strings.TrimSpace(*driver.ResignDate) == "" {
+			drivers = append(drivers, ActiveDriver{ID: id, DriverName: name})
+		}
+	}
+	return drivers, nil
+}
+
+func (c *Client) Driver(ctx context.Context, id int64, name string) error {
+	drivers, err := c.ActiveDrivers(ctx, name)
+	if err != nil {
 		return err
 	}
-	for _, driver := range response.Data {
-		driverID, err := parseID(driver.ID)
-		if err == nil && driverID == id && strings.EqualFold(strings.TrimSpace(driver.DriverName), strings.TrimSpace(name)) && driver.ResignDate == nil {
+	for _, driver := range drivers {
+		if driver.ID == id && strings.EqualFold(driver.DriverName, strings.TrimSpace(name)) {
 			return nil
 		}
 	}

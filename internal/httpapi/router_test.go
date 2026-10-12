@@ -10,9 +10,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 
+	"truckin-be/internal/integration"
 	"truckin-be/internal/movement"
 )
 
@@ -22,6 +25,19 @@ type testPinger struct {
 
 func (p testPinger) PingContext(context.Context) error {
 	return p.err
+}
+
+type testDriverSearcher struct {
+	drivers []integration.ActiveDriver
+	err     error
+	query   string
+	calls   int
+}
+
+func (s *testDriverSearcher) ActiveDrivers(_ context.Context, query string) ([]integration.ActiveDriver, error) {
+	s.calls++
+	s.query = query
+	return s.drivers, s.err
 }
 
 func TestRouterHealthReturnsOK(t *testing.T) {
@@ -96,6 +112,93 @@ func TestRouterRejectsUnconfiguredOriginPreflight(t *testing.T) {
 	}
 }
 
+func TestRouterListsActiveDriversForAppUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := []byte("test-secret")
+	searcher := &testDriverSearcher{drivers: []integration.ActiveDriver{{ID: 42, DriverName: "Driver Name"}}}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/drivers?name=Driver%20Name", nil)
+	request.Header.Set("Authorization", "Bearer "+testToken(t, secret, appPermission))
+	response := httptest.NewRecorder()
+
+	NewRouter(Dependencies{
+		Database:        testPinger{},
+		Drivers:         searcher,
+		JWTSecret:       secret,
+		PermissionClaim: "permissions",
+	}).ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if searcher.query != "Driver Name" {
+		t.Fatalf("driver query = %q", searcher.query)
+	}
+	var body struct {
+		Data []integration.ActiveDriver `json:"data"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if len(body.Data) != 1 || body.Data[0] != (integration.ActiveDriver{ID: 42, DriverName: "Driver Name"}) {
+		t.Fatalf("response data = %#v", body.Data)
+	}
+}
+
+func TestRouterRejectsDriverSearchForWebUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := []byte("test-secret")
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/drivers?name=Driver", nil)
+	request.Header.Set("Authorization", "Bearer "+testToken(t, secret, webPermission))
+	response := httptest.NewRecorder()
+
+	NewRouter(Dependencies{
+		Database:        testPinger{},
+		Drivers:         &testDriverSearcher{},
+		JWTSecret:       secret,
+		PermissionClaim: "permissions",
+	}).ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+}
+
+func TestRouterRequiresDriverSearchName(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := []byte("test-secret")
+	searcher := &testDriverSearcher{}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/drivers", nil)
+	request.Header.Set("Authorization", "Bearer "+testToken(t, secret, appPermission))
+	response := httptest.NewRecorder()
+
+	NewRouter(Dependencies{
+		Database:        testPinger{},
+		Drivers:         searcher,
+		JWTSecret:       secret,
+		PermissionClaim: "permissions",
+	}).ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusBadRequest)
+	}
+	if searcher.calls != 0 {
+		t.Fatalf("driver search calls = %d, want 0", searcher.calls)
+	}
+}
+
+func testToken(t *testing.T, secret []byte, permission string) string {
+	t.Helper()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"exp":         time.Now().Add(time.Minute).Unix(),
+		"permissions": []string{permission},
+	})
+	signed, err := token.SignedString(secret)
+	if err != nil {
+		t.Fatalf("sign token: %v", err)
+	}
+	return signed
+}
+
 func TestCSVValuePreventsFormulaExecution(t *testing.T) {
 	if got := csvValue("=HYPERLINK(\"https://example.test\")"); got != "'=HYPERLINK(\"https://example.test\")" {
 		t.Fatalf("csvValue() = %q", got)
@@ -128,6 +231,9 @@ func TestRouterServesGeneratedSwaggerDefinition(t *testing.T) {
 	}
 	if !bytes.Contains(response.Body.Bytes(), []byte(`"/api/v1/movements"`)) {
 		t.Fatal("Swagger definition does not contain the movement endpoint")
+	}
+	if !bytes.Contains(response.Body.Bytes(), []byte(`"/api/v1/drivers"`)) {
+		t.Fatal("Swagger definition does not contain the driver search endpoint")
 	}
 
 	var definition map[string]any

@@ -97,3 +97,44 @@ func TestUnitsRejectsIncompleteCursorPages(t *testing.T) {
 		})
 	}
 }
+
+func TestActiveDriversUsesSwaggerContract(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/internal/v1/active-drivers" {
+			t.Errorf("request path = %q", request.URL.Path)
+			return
+		}
+		if request.URL.Query().Get("name") != "Driver Name" {
+			t.Errorf("request query = %q", request.URL.RawQuery)
+			return
+		}
+		if request.Header.Get("Authorization") != "Bearer service-token" {
+			t.Errorf("Authorization = %q", request.Header.Get("Authorization"))
+			return
+		}
+		_, _ = writer.Write([]byte(`{
+			"success": true,
+			"code": 200,
+			"data": [
+				{"id": 42, "driverName": "Driver Name", "organizationName": "Pool"},
+				{"id": 43, "driverName": "Former Driver", "resignDate": "2026-01-01"}
+			]
+		}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(Config{
+		DriverBaseURL:  server.URL,
+		DriverToken:    "service-token",
+		ConnectTimeout: time.Second,
+		RequestTimeout: time.Second,
+	})
+
+	drivers, err := client.ActiveDrivers(context.Background(), "Driver Name")
+	if err != nil {
+		t.Fatalf("ActiveDrivers() error = %v", err)
+	}
+	if len(drivers) != 1 || drivers[0] != (ActiveDriver{ID: 42, DriverName: "Driver Name"}) {
+		t.Fatalf("ActiveDrivers() = %#v", drivers)
+	}
+}

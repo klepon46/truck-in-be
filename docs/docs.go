@@ -69,6 +69,78 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/drivers": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Movements"
+                ],
+                "summary": "Search active drivers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Driver name",
+                        "name": "name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/httpapi.activeDriverResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/movements": {
             "post": {
                 "security": [
@@ -788,6 +860,17 @@ const docTemplate = `{
                 "data": {},
                 "pagination": {
                     "$ref": "#/definitions/operations.Page"
+                }
+            }
+        },
+        "httpapi.activeDriverResponse": {
+            "type": "object",
+            "properties": {
+                "driverName": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
                 }
             }
         },

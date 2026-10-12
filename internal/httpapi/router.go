@@ -27,6 +27,7 @@ type Dependencies struct {
 	ActorIDClaim       string
 	ActorNameClaim     string
 	CORSAllowedOrigins []string
+	Drivers            DriverSearcher
 }
 
 func NewRouter(dependencies Dependencies) *gin.Engine {
@@ -43,6 +44,7 @@ func NewRouter(dependencies Dependencies) *gin.Engine {
 	api := router.Group("/api/v1")
 	api.Use(auth.Authenticate(dependencies.JWTSecret))
 	api.POST("/movements", auth.RequirePermission(dependencies.PermissionClaim, appPermission), movementHandler(dependencies))
+	api.GET("/drivers", auth.RequirePermission(dependencies.PermissionClaim, appPermission), driversHandler(dependencies.Drivers))
 
 	operationsAPI := api.Group("/")
 	operationsAPI.Use(auth.RequirePermission(dependencies.PermissionClaim, webPermission))

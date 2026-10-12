@@ -22,6 +22,13 @@ definitions:
       pagination:
         $ref: '#/definitions/operations.Page'
     type: object
+  httpapi.activeDriverResponse:
+    properties:
+      driverName:
+        type: string
+      id:
+        type: integer
+    type: object
   httpapi.movementRequest:
     properties:
       direction:
@@ -256,6 +263,49 @@ paths:
       summary: Get operational dashboard totals
       tags:
       - Operations
+  /api/v1/drivers:
+    get:
+      parameters:
+      - description: Driver name
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpapi.DataResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/httpapi.activeDriverResponse'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpapi.APIError'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpapi.APIError'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httpapi.APIError'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpapi.APIError'
+      security:
+      - BearerAuth: []
+      summary: Search active drivers
+      tags:
+      - Movements
   /api/v1/movements:
     post:
       consumes:

@@ -23,7 +23,7 @@ Authorization: Bearer <access-token>
 
 | Client | Required permission | Permitted UnitLog API |
 | --- | --- | --- |
-| Android satpam | `unitlog:app:default:view` | `POST /api/v1/movements` |
+| Android satpam | `unitlog:app:default:view` | `GET /api/v1/drivers`, `POST /api/v1/movements` |
 | Web operations | `unitlog:web:default:view` | Dashboard, unit, transaction, and CSV routes |
 
 The JWT must also contain non-empty configured actor ID and actor name claims for movement submission. UnitLog stores these as immutable transaction audit data.
@@ -116,6 +116,32 @@ async function request<T>(
 ```
 
 Download CSV endpoints as a `Blob`, not JSON. Preserve the server `Content-Disposition` filename when the frontend platform supports it.
+
+## Active Driver Search For OUT - Other
+
+Before submitting an `OUT` movement with destination `OTHER`, search UnitLog for active drivers:
+
+```http
+GET /api/v1/drivers?name=<search-term>
+Authorization: Bearer <satpam-jwt>
+```
+
+`name` is required and is forwarded to the Driver service only by UnitLog. The Android client must not call the Driver service or receive its service token.
+
+Success returns only the fields required to populate the movement form:
+
+```json
+{
+  "data": [
+    {
+      "id": 42,
+      "driverName": "Driver Name"
+    }
+  ]
+}
+```
+
+Use the selected `id` and `driverName` as `driverId` and `driverName` in the `OUT - Other` movement body. A blank `name` returns `400 INVALID_DRIVER_QUERY`; an empty `data` array means no active driver matched the search.
 
 ## Movement Submission For Android
 
@@ -344,16 +370,6 @@ Current implementation limitation: each CSV export fetches at most the first 100
 
 ## Frontend Gaps Requiring A Decision
 
-### Active Driver Search For OUT - Other
-
-The PRD requires satpam to search and select an active driver. UnitLog currently validates a submitted `driverId` and `driverName`, but does not expose a public driver-search endpoint.
-
-Do not call the Driver service directly from Android or web clients and do not expose the service token. Before implementing the `OTHER` driver picker, obtain one approved solution:
-
-1. Add a UnitLog endpoint that proxies active-driver search with satpam authorization.
-2. Use an existing authenticated backend endpoint approved by the Driver service owner.
-3. Supply driver ID and name from an approved client-owned source.
-
 ### Optional Prevalidation
 
 UnitLog has no public endpoints to prevalidate a work order, SPP, or QR unit. Submit the selected movement and render the server validation result. The backend is the authority for document validity and transition state.
@@ -364,6 +380,7 @@ UnitLog has no public endpoints to prevalidate a work order, SPP, or QR unit. Su
 
 - Obtain and refresh the Auth Service token outside UnitLog.
 - Parse the scanned QR to `noLambung`.
+- Search `GET /api/v1/drivers` to select an active driver for `OUT - Other`.
 - Render mutually exclusive IN/OUT form controls.
 - Generate an idempotency UUID once per confirmed submit.
 - Disable duplicate submission while the request is in flight.
