@@ -402,6 +402,7 @@ UnitLog has no public endpoints to prevalidate a work order, SPP, or QR unit. Su
 
 - `docs/swagger.yaml`: generated OpenAPI 2.0 contract.
 - `docs/swagger.json`: generated JSON OpenAPI contract.
+- `docs/mobile-driver-search-handover.md`: mobile implementation guide for the active-driver picker.
 - `internal/httpapi/router.go`: route, validation, status-code, and CSV behavior.
 - `internal/movement/validation.go`: exact mutually exclusive movement input rules.
 - `internal/operations/service.go`: filtering, pagination, status, and export behavior.
