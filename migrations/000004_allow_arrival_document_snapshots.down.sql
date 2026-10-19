@@ -1,3 +1,16 @@
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM movement_transactions
+        WHERE direction = 'IN'
+          AND (work_order_number IS NOT NULL OR spp_number IS NOT NULL OR driver_id IS NOT NULL)
+    ) THEN
+        RAISE EXCEPTION 'cannot roll back 000004: arrival document or OTHER snapshots are immutable';
+    END IF;
+END;
+$$;
+
 DROP INDEX movement_transactions_work_order_number_uidx;
 CREATE UNIQUE INDEX movement_transactions_work_order_number_uidx
     ON movement_transactions (work_order_number) WHERE work_order_number IS NOT NULL;

@@ -15,30 +15,30 @@ import (
 var idempotencyKeyPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
 
 type movementRequest struct {
-	// Required for all movements.
+	// Required for all movements. Populate from a document lookup or unit picker; do not derive it from a unit QR scan.
 	NoLambung string `json:"noLambung" validate:"required" example:"SAMT223"`
-	// Required for all movements. IN requires inCategory; OUT requires outDestination and its matching fields.
+	// Required for all movements. IN requires inCategory and exactly one source: workOrderNumber, sppNumber, or OTHER fields. OUT requires outDestination and its matching fields.
 	Direction movement.Direction `json:"direction" validate:"required" enums:"IN,OUT" example:"OUT"`
 	// Required only for IN. Must not be supplied for OUT.
 	InCategory string `json:"inCategory" enums:"WAITING_FOR_ASSIGNMENT,WAITING_FOR_DELIVERY_TO_CUSTOMER,SERVICE_AND_REPAIR_MAINTENANCE"`
 	// Required only for OUT. Must not be supplied for IN.
 	OutDestination string `json:"outDestination" enums:"BENGKEL_LUAR,FILLING_SHED_KUIN,CUSTOMER,OTHER"`
-	// Required only when outDestination is BENGKEL_LUAR.
+	// Required for BENGKEL_LUAR OUT and a returning IN for a BENGKEL_LUAR departure.
 	WorkOrderNumber string `json:"workOrderNumber" example:"WO-001"`
-	// Required only when outDestination is FILLING_SHED_KUIN or CUSTOMER.
+	// Required for FILLING_SHED_KUIN or CUSTOMER OUT and a returning IN for either SPP departure.
 	SPPNumber string `json:"sppNumber" example:"SPP-001"`
-	// Required only when outDestination is OTHER.
+	// Required for OTHER movements in either direction.
 	DriverID int64 `json:"driverId" example:"42"`
-	// Required only when outDestination is OTHER.
+	// Required for OTHER movements in either direction.
 	DriverName string `json:"driverName" example:"Driver Name"`
-	// Required only when outDestination is OTHER; optional for other OUT destinations.
+	// Required for OTHER movements in either direction; optional for document-backed OUT movements.
 	Note string `json:"note" example:"Operational note"`
 }
 
 // movementHandler records an immutable truck movement.
 //
 // @Summary Record a unit movement
-// @Description Records an IN or OUT transaction. Retries must reuse the same Idempotency-Key and request body. IN requires inCategory only. OUT requires BENGKEL_LUAR with workOrderNumber, FILLING_SHED_KUIN or CUSTOMER with sppNumber, or OTHER with driverId, driverName, and note.
+// @Description Records an IN or OUT transaction after document lookup or unit/driver selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER is required when returning from OTHER. Retries must reuse the same Idempotency-Key and request body.
 // @Tags Movements
 // @Accept json
 // @Produce json

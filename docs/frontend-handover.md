@@ -23,7 +23,7 @@ Authorization: Bearer <access-token>
 
 | Client | Required permission | Permitted UnitLog API |
 | --- | --- | --- |
-| Android satpam | `unitlog:app:default:view` | `GET /api/v1/drivers`, `POST /api/v1/movements` |
+| Android satpam | `unitlog:app:default:view` | `GET /api/v1/drivers`, document lookup routes, `GET /api/v1/unit-picker`, `POST /api/v1/movements` |
 | Web operations | `unitlog:web:default:view` | Dashboard, unit, transaction, and CSV routes |
 
 The JWT must also contain non-empty configured actor ID and actor name claims for movement submission. UnitLog stores these as immutable transaction audit data.
@@ -117,9 +117,9 @@ async function request<T>(
 
 Download CSV endpoints as a `Blob`, not JSON. Preserve the server `Content-Disposition` filename when the frontend platform supports it.
 
-## Active Driver Search For OUT - Other
+## Active Driver Search For OTHER
 
-Before submitting an `OUT` movement with destination `OTHER`, search UnitLog for active drivers:
+Before submitting an `IN` or `OUT` movement with source/destination `OTHER`, search UnitLog for active drivers:
 
 ```http
 GET /api/v1/drivers?name=<search-term>
@@ -141,7 +141,7 @@ Success returns only the fields required to populate the movement form:
 }
 ```
 
-Use the selected `id` and `driverName` as `driverId` and `driverName` in the `OUT - Other` movement body. A blank `name` returns `400 INVALID_DRIVER_QUERY`; an empty `data` array means no active driver matched the search.
+Use the selected `id` and `driverName` as `driverId` and `driverName` in the OTHER movement body. A blank `name` returns `400 INVALID_DRIVER_QUERY`; an empty `data` array means no active driver matched the search.
 
 ## Movement Submission For Android
 
@@ -158,11 +158,9 @@ Generate one UUID when the satpam confirms a scan. Reuse the same UUID only when
 
 Submitting the same UUID with different data returns `409 IDEMPOTENCY_CONFLICT`. Do not automatically retry a `4xx` response other than an intentional retry of the unchanged request after an ambiguous network failure.
 
-### QR Handling
+### Scan And Picker Handling
 
-Extract the final non-empty path segment from the scanned QR URL as `noLambung`. Example: `https://example.invalid/SAMT223` becomes `SAMT223`.
-
-Trim it before submitting. The backend uppercases and validates it. There is no public UnitLog lookup-by-QR endpoint; submitting the movement causes UnitLog to refresh an unknown unit from Unit Lambung when needed.
+Do not scan a unit QR. For WO/SPP movements, scan the document QR and use the returned UnitLog document lookup to populate `noLambung`, police number, and driver. For OTHER, select the unit from `GET /api/v1/unit-picker` and the driver from `GET /api/v1/drivers`; enter only the note manually. See [mobile-document-movement-handover.md](mobile-document-movement-handover.md) for the exact lookup and submit contract.
 
 ### Important: Submit Only One Valid Payload Variant
 
@@ -170,13 +168,14 @@ Swagger shows every optional property in one combined schema. That is not a vali
 
 #### IN
 
-Use one category. Do not send any OUT, driver, document, or note field.
+Use one category and exactly one arrival source: the returning WO, the returning SPP, or OTHER with selected driver and note. A returning IN must submit the same WO/SPP source and number used by its open OUT.
 
 ```json
 {
-  "noLambung": "SAMT223",
+  "noLambung": "A122",
   "direction": "IN",
-  "inCategory": "WAITING_FOR_ASSIGNMENT"
+  "inCategory": "WAITING_FOR_ASSIGNMENT",
+  "workOrderNumber": "WO-001"
 }
 ```
 
@@ -277,7 +276,7 @@ Clients must not send any cycle or departure fields in a movement request. See [
 | 400 | `INVALID_IDEMPOTENCY_KEY` or `INVALID_REQUEST` | Correct request construction; do not retry automatically. |
 | 401 | `UNAUTHORIZED` | Renew/login through Auth Service. |
 | 403 | `FORBIDDEN` or `INVALID_ACTOR` | Block action and show an access/account issue. |
-| 404 | `UNIT_NOT_FOUND` | Show that the scanned unit is unavailable. |
+| 404 | `UNIT_NOT_FOUND` | Show that the document or picker-selected unit is unavailable. |
 | 409 | `IDEMPOTENCY_CONFLICT`, `WORK_ORDER_USED`, `SPP_USED` | Keep form input visible; require user correction or a new movement. |
 | 422 | `VALIDATION_ERROR`, `INVALID_TRANSITION`, `DOCUMENT_VALIDATION_FAILED` | Show a contextual form/status validation message. |
 | 500 | `INTERNAL_ERROR` | Show a retryable service failure without exposing details. |
@@ -376,19 +375,17 @@ Both routes return `text/csv` with an attachment filename. Pass exactly the same
 
 Current implementation limitation: each CSV export fetches at most the first 100 matching rows and does not return pagination metadata. Do not label it as a complete all-record export. Request a backend export improvement if the operations team requires full datasets.
 
-## Frontend Gaps Requiring A Decision
+## Document Lookup Notes
 
-### Optional Prevalidation
-
-UnitLog has no public endpoints to prevalidate a work order, SPP, or QR unit. Submit the selected movement and render the server validation result. The backend is the authority for document validity and transition state.
+UnitLog provides WO/SPP lookup routes to populate the confirmation form. These calls are read-only convenience lookups, not a reservation or approval: the movement submit still revalidates the document and current transition state.
 
 ## Screen Delivery Checklist
 
 ### Android Satpam
 
 - Obtain and refresh the Auth Service token outside UnitLog.
-- Parse the scanned QR to `noLambung`.
-- Search `GET /api/v1/drivers` to select an active driver for `OUT - Other`.
+- Use document lookups for WO/SPP; use the unit and driver pickers for OTHER.
+- Search `GET /api/v1/drivers` to select an active driver for OTHER in either direction.
 - Render mutually exclusive IN/OUT form controls.
 - Generate an idempotency UUID once per confirmed submit.
 - Disable duplicate submission while the request is in flight.
@@ -413,6 +410,7 @@ UnitLog has no public endpoints to prevalidate a work order, SPP, or QR unit. Su
 - `docs/swagger.json`: generated JSON OpenAPI contract.
 - `docs/mobile-driver-search-handover.md`: mobile implementation guide for the active-driver picker.
 - `docs/mobile-movement-cycle-handover.md`: mobile implementation guide for movement-cycle display and validation.
+- `docs/mobile-document-movement-handover.md`: mobile document scan, unit picker, and movement-submission guide.
 - `internal/httpapi/router.go`: route, validation, status-code, and CSV behavior.
 - `internal/movement/validation.go`: exact mutually exclusive movement input rules.
 - `internal/operations/service.go`: filtering, pagination, status, and export behavior.

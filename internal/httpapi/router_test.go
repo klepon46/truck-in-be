@@ -42,11 +42,13 @@ type testDocumentLookup struct {
 }
 
 type testUnitPicker struct {
-	units []operations.Unit
-	err   error
+	units  []operations.Unit
+	err    error
+	filter operations.UnitFilter
 }
 
-func (p testUnitPicker) ListUnits(_ context.Context, filter operations.UnitFilter) ([]operations.Unit, operations.Page, error) {
+func (p *testUnitPicker) ListUnits(_ context.Context, filter operations.UnitFilter) ([]operations.Unit, operations.Page, error) {
+	p.filter = filter
 	return p.units, filter.Page, p.err
 }
 
@@ -207,16 +209,50 @@ func TestRouterLooksUpWorkshopDocumentForAppUser(t *testing.T) {
 	}
 }
 
-func TestRouterListsUnitsForAppPicker(t *testing.T) {
+func TestRouterLooksUpSPPDocumentWithCustomerForAppUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	secret := []byte("test-secret")
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/unit-picker?query=A122", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/movement-documents/spp?number=SPP-001", nil)
 	request.Header.Set("Authorization", "Bearer "+testToken(t, secret, appPermission))
 	response := httptest.NewRecorder()
 
 	NewRouter(Dependencies{
 		Database:        testPinger{},
-		UnitPicker:      testUnitPicker{units: []operations.Unit{{ID: 7, NoLambung: "A122", NoPolisi: "DA 122 A", IsActive: true}}},
+		Documents:       testDocumentLookup{spp: movement.LookupDocument{NoLambung: "A122", NoPolisi: "DA 122 A", DriverName: "Driver", SPPNumber: "SPP-001", CustomerID: "CUST-1", CustomerName: "Customer One"}},
+		JWTSecret:       secret,
+		PermissionClaim: "permissions",
+	}).ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", response.Code, http.StatusOK, response.Body.String())
+	}
+	var body struct {
+		Data struct {
+			SPPNumber    string `json:"sppNumber"`
+			CustomerID   string `json:"customerId"`
+			CustomerName string `json:"customerName"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if body.Data.SPPNumber != "SPP-001" || body.Data.CustomerID != "CUST-1" || body.Data.CustomerName != "Customer One" {
+		t.Fatalf("response data = %#v", body.Data)
+	}
+}
+
+func TestRouterListsUnitsForAppPicker(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := []byte("test-secret")
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/unit-picker?query=A122&includeInactive=true", nil)
+	request.Header.Set("Authorization", "Bearer "+testToken(t, secret, appPermission))
+	response := httptest.NewRecorder()
+
+	driverName := "Driver Name"
+	picker := &testUnitPicker{units: []operations.Unit{{ID: 7, NoLambung: "A122", NoPolisi: "DA 122 A", IsActive: true, DriverName: &driverName}}}
+	NewRouter(Dependencies{
+		Database:        testPinger{},
+		UnitPicker:      picker,
 		JWTSecret:       secret,
 		PermissionClaim: "permissions",
 	}).ServeHTTP(response, request)
@@ -235,6 +271,12 @@ func TestRouterListsUnitsForAppPicker(t *testing.T) {
 	}
 	if len(body.Data) != 1 || body.Data[0].NoLambung != "A122" || body.Data[0].NoPolisi != "DA 122 A" {
 		t.Fatalf("response data = %#v", body.Data)
+	}
+	if picker.filter.IncludeInactive {
+		t.Fatal("unit picker allowed includeInactive=true")
+	}
+	if bytes.Contains(response.Body.Bytes(), []byte(`"driverName"`)) {
+		t.Fatalf("unit picker leaked operations data: %s", response.Body.String())
 	}
 }
 
@@ -328,6 +370,15 @@ func TestRouterServesGeneratedSwaggerDefinition(t *testing.T) {
 	}
 	if !bytes.Contains(response.Body.Bytes(), []byte(`"/api/v1/drivers"`)) {
 		t.Fatal("Swagger definition does not contain the driver search endpoint")
+	}
+	if !bytes.Contains(response.Body.Bytes(), []byte(`"/api/v1/movement-documents/work-orders"`)) {
+		t.Fatal("Swagger definition does not contain the work order lookup endpoint")
+	}
+	if !bytes.Contains(response.Body.Bytes(), []byte(`"/api/v1/movement-documents/spp"`)) {
+		t.Fatal("Swagger definition does not contain the SPP lookup endpoint")
+	}
+	if !bytes.Contains(response.Body.Bytes(), []byte(`"/api/v1/unit-picker"`)) {
+		t.Fatal("Swagger definition does not contain the unit picker endpoint")
 	}
 
 	var definition map[string]any

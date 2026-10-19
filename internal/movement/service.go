@@ -49,6 +49,7 @@ type LookupDocument struct {
 	DriverName      string `json:"driverName"`
 	WorkOrderNumber string `json:"workOrderNumber,omitempty"`
 	SPPNumber       string `json:"sppNumber,omitempty"`
+	CustomerID      string `json:"customerId,omitempty"`
 	CustomerName    string `json:"customerName,omitempty"`
 }
 
@@ -106,7 +107,7 @@ func (s *Service) LookupSPP(ctx context.Context, number string) (LookupDocument,
 	if err != nil {
 		return LookupDocument{}, errors.Join(ErrExternalDocument, err)
 	}
-	return s.lookupDocument(ctx, document, LookupDocument{SPPNumber: strings.TrimSpace(number), CustomerName: document.CustomerName})
+	return s.lookupDocument(ctx, document, LookupDocument{SPPNumber: strings.TrimSpace(number), CustomerID: document.CustomerID, CustomerName: document.CustomerName})
 }
 
 func (s *Service) lookupDocument(ctx context.Context, document Document, result LookupDocument) (LookupDocument, error) {

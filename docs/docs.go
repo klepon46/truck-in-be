@@ -141,6 +141,168 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/movement-documents/spp": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Movements"
+                ],
+                "summary": "Look up a scanned SPP",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "SPP number",
+                        "name": "number",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/movement.LookupDocument"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/movement-documents/work-orders": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Movements"
+                ],
+                "summary": "Look up a scanned work order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Work order number",
+                        "name": "number",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.DataResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/movement.LookupDocument"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/movements": {
             "post": {
                 "security": [
@@ -148,7 +310,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Records an IN or OUT transaction. Retries must reuse the same Idempotency-Key and request body. IN requires inCategory only. OUT requires BENGKEL_LUAR with workOrderNumber, FILLING_SHED_KUIN or CUSTOMER with sppNumber, or OTHER with driverId, driverName, and note.",
+                "description": "Records an IN or OUT transaction after document lookup or unit/driver selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER is required when returning from OTHER. Retries must reuse the same Idempotency-Key and request body.",
                 "consumes": [
                     "application/json"
                 ],
@@ -418,6 +580,88 @@ const docTemplate = `{
                         "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/unit-picker": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Movements"
+                ],
+                "summary": "List units for the movement picker",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search no_lambung or no_polisi",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "default": 25,
+                        "description": "Page size",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpapi.ListResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/httpapi.unitPickerResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "401": {
@@ -882,7 +1126,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "direction": {
-                    "description": "Required for all movements. IN requires inCategory; OUT requires outDestination and its matching fields.",
+                    "description": "Required for all movements. IN requires inCategory and exactly one source: workOrderNumber, sppNumber, or OTHER fields. OUT requires outDestination and its matching fields.",
                     "enum": [
                         "IN",
                         "OUT"
@@ -895,12 +1139,12 @@ const docTemplate = `{
                     "example": "OUT"
                 },
                 "driverId": {
-                    "description": "Required only when outDestination is OTHER.",
+                    "description": "Required for OTHER movements in either direction.",
                     "type": "integer",
                     "example": 42
                 },
                 "driverName": {
-                    "description": "Required only when outDestination is OTHER.",
+                    "description": "Required for OTHER movements in either direction.",
                     "type": "string",
                     "example": "Driver Name"
                 },
@@ -914,12 +1158,12 @@ const docTemplate = `{
                     ]
                 },
                 "noLambung": {
-                    "description": "Required for all movements.",
+                    "description": "Required for all movements. Populate from a document lookup or unit picker; do not derive it from a unit QR scan.",
                     "type": "string",
                     "example": "SAMT223"
                 },
                 "note": {
-                    "description": "Required only when outDestination is OTHER; optional for other OUT destinations.",
+                    "description": "Required for OTHER movements in either direction; optional for document-backed OUT movements.",
                     "type": "string",
                     "example": "Operational note"
                 },
@@ -934,14 +1178,25 @@ const docTemplate = `{
                     ]
                 },
                 "sppNumber": {
-                    "description": "Required only when outDestination is FILLING_SHED_KUIN or CUSTOMER.",
+                    "description": "Required for FILLING_SHED_KUIN or CUSTOMER OUT and a returning IN for either SPP departure.",
                     "type": "string",
                     "example": "SPP-001"
                 },
                 "workOrderNumber": {
-                    "description": "Required only when outDestination is BENGKEL_LUAR.",
+                    "description": "Required for BENGKEL_LUAR OUT and a returning IN for a BENGKEL_LUAR departure.",
                     "type": "string",
                     "example": "WO-001"
+                }
+            }
+        },
+        "httpapi.unitPickerResponse": {
+            "type": "object",
+            "properties": {
+                "noLambung": {
+                    "type": "string"
+                },
+                "noPolisi": {
+                    "type": "string"
                 }
             }
         },
@@ -955,6 +1210,32 @@ const docTemplate = `{
                 "DirectionIn",
                 "DirectionOut"
             ]
+        },
+        "movement.LookupDocument": {
+            "type": "object",
+            "properties": {
+                "customerId": {
+                    "type": "string"
+                },
+                "customerName": {
+                    "type": "string"
+                },
+                "driverName": {
+                    "type": "string"
+                },
+                "noLambung": {
+                    "type": "string"
+                },
+                "noPolisi": {
+                    "type": "string"
+                },
+                "sppNumber": {
+                    "type": "string"
+                },
+                "workOrderNumber": {
+                    "type": "string"
+                }
+            }
         },
         "movement.Transaction": {
             "type": "object",

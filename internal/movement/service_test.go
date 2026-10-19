@@ -318,6 +318,33 @@ WHERE no_lambung = $1 AND is_active = TRUE`)).
 	}
 }
 
+func TestLookupSPPReturnsValidatedCustomerDocument(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New() error = %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+SELECT lambung_unit_id, no_lambung, no_polisi
+FROM unit_snapshot
+WHERE no_lambung = $1 AND is_active = TRUE`)).
+		WithArgs("SAMT119").
+		WillReturnRows(sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi"}).
+			AddRow(int64(7), "SAMT119", "DA 1234 AB"))
+
+	result, err := NewService(sqlx.NewDb(db, "sqlmock"), nil, testDocuments{}).LookupSPP(context.Background(), "SPP-001")
+	if err != nil {
+		t.Fatalf("LookupSPP() error = %v", err)
+	}
+	if result.CustomerID != "CUST-1" || result.CustomerName != "Customer One" {
+		t.Fatalf("LookupSPP() customer = %#v", result)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 type testDocuments struct{}
 
 func (testDocuments) Workshop(context.Context, string) (Document, error) {
@@ -325,7 +352,7 @@ func (testDocuments) Workshop(context.Context, string) (Document, error) {
 }
 
 func (testDocuments) SPP(context.Context, string) (Document, error) {
-	return Document{NoLambung: "SAMT119", NoPolisi: "DA 1234 AB", DriverName: "Driver"}, nil
+	return Document{NoLambung: "SAMT119", NoPolisi: "DA 1234 AB", DriverName: "Driver", CustomerID: "CUST-1", CustomerName: "Customer One"}, nil
 }
 
 func (testDocuments) Driver(context.Context, int64, string) error {
