@@ -64,10 +64,38 @@ func TestValidateInputRequiresOtherDriverAndNote(t *testing.T) {
 	}
 }
 
-func TestValidateInputRejectsDocumentsForIn(t *testing.T) {
-	input := Input{Direction: DirectionIn, InCategory: InWaitingForAssignment, WorkOrderNumber: "WO-1"}
+func TestValidateInputAllowsDocumentAndOtherSourcesForIn(t *testing.T) {
+	tests := []struct {
+		name  string
+		input Input
+	}{
+		{
+			name:  "work order",
+			input: Input{NoLambung: "A122", Direction: DirectionIn, InCategory: InWaitingForAssignment, WorkOrderNumber: "WO-1"},
+		},
+		{
+			name:  "SPP",
+			input: Input{NoLambung: "A122", Direction: DirectionIn, InCategory: InWaitingForAssignment, SPPNumber: "SPP-1"},
+		},
+		{
+			name:  "other",
+			input: Input{NoLambung: "A122", Direction: DirectionIn, InCategory: InWaitingForAssignment, DriverID: 42, DriverName: "Driver", Note: "Arrival note"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.input.Validate(); err != nil {
+				t.Fatalf("Validate() error = %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateInputRejectsMixedInSources(t *testing.T) {
+	input := Input{NoLambung: "A122", Direction: DirectionIn, InCategory: InWaitingForAssignment, WorkOrderNumber: "WO-1", DriverID: 42, DriverName: "Driver"}
 	if err := input.Validate(); err == nil {
-		t.Fatal("Validate() accepted an OUT document on IN")
+		t.Fatal("Validate() accepted mixed IN document and other source fields")
 	}
 }
 

@@ -120,7 +120,7 @@ func movementError(c *gin.Context, err error) {
 		apiError(c, http.StatusConflict, "WORK_ORDER_USED", "work order has already been used")
 	case errors.Is(err, movement.ErrSPPUsed):
 		apiError(c, http.StatusConflict, "SPP_USED", "SPP has already been used")
-	case errors.Is(err, movement.ErrSPPMismatch), errors.Is(err, movement.ErrCustomerMismatch), errors.Is(err, movement.ErrExternalDocument):
+	case errors.Is(err, movement.ErrSPPMismatch), errors.Is(err, movement.ErrCustomerMismatch), errors.Is(err, movement.ErrReturnDocumentMismatch), errors.Is(err, movement.ErrExternalDocument):
 		apiError(c, http.StatusUnprocessableEntity, "DOCUMENT_VALIDATION_FAILED", "movement document is invalid")
 	default:
 		apiError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "could not record movement")

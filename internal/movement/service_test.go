@@ -2,6 +2,7 @@ package movement
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"testing"
 	"time"
@@ -256,14 +257,48 @@ WHERE transaction_id = $1`)).
 	}
 }
 
+func TestValidateReturningSourceRequiresTheDepartureDocument(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New() error = %v", err)
+	}
+	defer db.Close()
+
+	database := sqlx.NewDb(db, "sqlmock")
+	mock.ExpectBegin()
+	tx, err := database.BeginTxx(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("BeginTxx() error = %v", err)
+	}
+	mock.ExpectQuery(regexp.QuoteMeta(`
+SELECT out_destination, work_order_number, spp_number
+FROM movement_transactions
+WHERE transaction_id = $1 AND direction = 'OUT'`)).
+		WithArgs(int64(19)).
+		WillReturnRows(sqlmock.NewRows([]string{"out_destination", "work_order_number", "spp_number"}).
+			AddRow(OutWorkshop, "WO-001", nil))
+	mock.ExpectRollback()
+
+	err = validateReturningSource(context.Background(), tx, 19, Input{Direction: DirectionIn, WorkOrderNumber: "WO-002"})
+	if !errors.Is(err, ErrReturnDocumentMismatch) {
+		t.Fatalf("validateReturningSource() error = %v, want %v", err, ErrReturnDocumentMismatch)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatalf("Rollback() error = %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 type testDocuments struct{}
 
 func (testDocuments) Workshop(context.Context, string) (Document, error) {
-	return Document{DriverName: "Driver"}, nil
+	return Document{NoLambung: "SAMT119", NoPolisi: "DA 1234 AB", DriverName: "Driver"}, nil
 }
 
 func (testDocuments) SPP(context.Context, string) (Document, error) {
-	return Document{}, nil
+	return Document{NoLambung: "SAMT119", NoPolisi: "DA 1234 AB", DriverName: "Driver"}, nil
 }
 
 func (testDocuments) Driver(context.Context, int64, string) error {
@@ -365,6 +400,13 @@ func TestRecordCompletesCycleForReturningInMovement(t *testing.T) {
 		WithArgs("96942009-f8c4-4dbf-b7e0-6d571765166a").
 		WillReturnRows(sqlmock.NewRows(transactionCycleColumns))
 	mock.ExpectQuery(regexp.QuoteMeta(`
+SELECT out_destination, work_order_number, spp_number
+FROM movement_transactions
+WHERE transaction_id = $1 AND direction = 'OUT'`)).
+		WithArgs(int64(19)).
+		WillReturnRows(sqlmock.NewRows([]string{"out_destination", "work_order_number", "spp_number"}).
+			AddRow(OutWorkshop, "WO-001", nil))
+	mock.ExpectQuery(regexp.QuoteMeta(`
 INSERT INTO movement_transactions (
     idempotency_key, request_hash, lambung_unit_id, no_lambung_snapshot, no_polisi_snapshot,
     direction, in_category, out_destination, driver_id, driver_name_snapshot,
@@ -379,11 +421,11 @@ INSERT INTO movement_transactions (
     actor_name_snapshot, occurred_at`)).
 		WithArgs(
 			"96942009-f8c4-4dbf-b7e0-6d571765166a", sqlmock.AnyArg(), int64(7), "SAMT119", "DA 1234 AB",
-			DirectionIn, InWaitingForAssignment, "", int64(0), "", "", "", "", "", "", "12", "superadmin",
+			DirectionIn, InWaitingForAssignment, "", int64(0), "Driver", "WO-001", "", "", "", "", "12", "superadmin",
 		).
 		WillReturnRows(sqlmock.NewRows(transactionColumns).AddRow(
 			int64(20), []byte("request-hash"), int64(7), "SAMT119", "DA 1234 AB",
-			"IN", InWaitingForAssignment, nil, nil, nil, nil, nil, nil, nil, nil,
+			"IN", InWaitingForAssignment, nil, nil, "Driver", "WO-001", nil, nil, nil, nil,
 			"12", "superadmin", now,
 		))
 	mock.ExpectQuery(regexp.QuoteMeta(`
@@ -417,8 +459,8 @@ WHERE transaction_id = $1`)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
-	transaction, err := NewService(sqlx.NewDb(db, "sqlmock"), nil, nil).Record(context.Background(), "96942009-f8c4-4dbf-b7e0-6d571765166a", Input{
-		NoLambung: "SAMT119", Direction: DirectionIn, InCategory: InWaitingForAssignment,
+	transaction, err := NewService(sqlx.NewDb(db, "sqlmock"), nil, testDocuments{}).Record(context.Background(), "96942009-f8c4-4dbf-b7e0-6d571765166a", Input{
+		NoLambung: "SAMT119", Direction: DirectionIn, InCategory: InWaitingForAssignment, WorkOrderNumber: "WO-001",
 	}, "12", "superadmin")
 	if err != nil {
 		t.Fatalf("Record() error = %v", err)

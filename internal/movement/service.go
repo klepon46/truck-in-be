@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -14,13 +15,14 @@ import (
 )
 
 var (
-	ErrUnitNotFound        = errors.New("unit not found")
-	ErrIdempotencyConflict = errors.New("idempotency key payload conflict")
-	ErrWorkOrderUsed       = errors.New("work order has already been used")
-	ErrSPPUsed             = errors.New("SPP has already been used")
-	ErrSPPMismatch         = errors.New("SPP does not match the active SPP")
-	ErrCustomerMismatch    = errors.New("customer does not match the active SPP")
-	ErrExternalDocument    = errors.New("external document is invalid")
+	ErrUnitNotFound           = errors.New("unit not found")
+	ErrIdempotencyConflict    = errors.New("idempotency key payload conflict")
+	ErrWorkOrderUsed          = errors.New("work order has already been used")
+	ErrSPPUsed                = errors.New("SPP has already been used")
+	ErrSPPMismatch            = errors.New("SPP does not match the active SPP")
+	ErrCustomerMismatch       = errors.New("customer does not match the active SPP")
+	ErrExternalDocument       = errors.New("external document is invalid")
+	ErrReturnDocumentMismatch = errors.New("arrival document does not match the departure")
 )
 
 type UnitRefresher interface {
@@ -114,6 +116,9 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 	if err != nil {
 		return Transaction{}, fmt.Errorf("lock unit snapshot: %w", err)
 	}
+	if err := validateDocumentUnit(document, snapshot); err != nil {
+		return Transaction{}, err
+	}
 	if existing, found, err := s.findByKey(ctx, tx, idempotencyKey); err != nil {
 		return Transaction{}, fmt.Errorf("recheck existing movement: %w", err)
 	} else if found {
@@ -121,6 +126,11 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 	}
 	if err := ValidateTransition(snapshot.Status, input.Direction, input.InCategory, input.OutDestination); err != nil {
 		return Transaction{}, err
+	}
+	if input.Direction == DirectionIn && snapshot.CurrentTransactionID != nil {
+		if err := validateReturningSource(ctx, tx, *snapshot.CurrentTransactionID, input); err != nil {
+			return Transaction{}, err
+		}
 	}
 	if input.Direction == DirectionOut && input.OutDestination == OutCustomer {
 		if err := validateActiveSPP(ctx, tx, snapshot.CurrentTransactionID, input.SPPNumber, document); err != nil {
@@ -174,6 +184,37 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 	return transaction, nil
 }
 
+func validateReturningSource(ctx context.Context, tx *sqlx.Tx, transactionID int64, input Input) error {
+	var departure struct {
+		Destination string  `db:"out_destination"`
+		WorkOrder   *string `db:"work_order_number"`
+		SPP         *string `db:"spp_number"`
+	}
+	if err := tx.GetContext(ctx, &departure, `
+SELECT out_destination, work_order_number, spp_number
+FROM movement_transactions
+WHERE transaction_id = $1 AND direction = 'OUT'`, transactionID); err != nil {
+		return ErrReturnDocumentMismatch
+	}
+	switch departure.Destination {
+	case OutWorkshop:
+		if departure.WorkOrder == nil || input.WorkOrderNumber != *departure.WorkOrder {
+			return ErrReturnDocumentMismatch
+		}
+	case OutFillingShed, OutCustomer:
+		if departure.SPP == nil || input.SPPNumber != *departure.SPP {
+			return ErrReturnDocumentMismatch
+		}
+	case OutOther:
+		if input.WorkOrderNumber != "" || input.SPPNumber != "" {
+			return ErrReturnDocumentMismatch
+		}
+	default:
+		return ErrReturnDocumentMismatch
+	}
+	return nil
+}
+
 func (t *Transaction) applyCycle(cycle movementCycle) {
 	t.CycleID = &cycle.ID
 	t.DepartureTransactionID = &cycle.DepartureTransactionID
@@ -182,32 +223,29 @@ func (t *Transaction) applyCycle(cycle movementCycle) {
 }
 
 func (s *Service) validateDocument(ctx context.Context, input *Input) (Document, error) {
-	if input.Direction == DirectionIn {
-		return Document{}, nil
-	}
 	if s.documents == nil {
 		return Document{}, ErrExternalDocument
 	}
-	switch input.OutDestination {
-	case OutWorkshop:
+	switch {
+	case input.WorkOrderNumber != "":
 		document, err := s.documents.Workshop(ctx, input.WorkOrderNumber)
 		if err != nil {
 			return Document{}, errors.Join(ErrExternalDocument, fmt.Errorf("validate workshop document: %w", err))
 		}
-		if document.DriverName == "" {
+		if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" || !strings.EqualFold(document.NoLambung, input.NoLambung) {
 			return Document{}, ErrExternalDocument
 		}
 		return document, nil
-	case OutFillingShed, OutCustomer:
+	case input.SPPNumber != "":
 		document, err := s.documents.SPP(ctx, input.SPPNumber)
 		if err != nil {
 			return Document{}, errors.Join(ErrExternalDocument, fmt.Errorf("validate SPP document: %w", err))
 		}
-		if document.DriverName == "" {
+		if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" || !strings.EqualFold(document.NoLambung, input.NoLambung) {
 			return Document{}, ErrExternalDocument
 		}
 		return document, nil
-	case OutOther:
+	case input.DriverID != 0:
 		if err := s.documents.Driver(ctx, input.DriverID, input.DriverName); err != nil {
 			return Document{}, errors.Join(ErrExternalDocument, fmt.Errorf("validate driver: %w", err))
 		}
@@ -215,6 +253,16 @@ func (s *Service) validateDocument(ctx context.Context, input *Input) (Document,
 	default:
 		return Document{}, ErrInvalidInput
 	}
+}
+
+func validateDocumentUnit(document Document, unit snapshot) error {
+	if document.NoLambung == "" {
+		return nil
+	}
+	if !strings.EqualFold(document.NoLambung, unit.NoLambung) || !strings.EqualFold(strings.TrimSpace(document.NoPolisi), strings.TrimSpace(unit.NoPolisi)) {
+		return ErrExternalDocument
+	}
+	return nil
 }
 
 type snapshot struct {

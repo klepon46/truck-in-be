@@ -58,10 +58,10 @@ func (i Input) Validate() error {
 		return ErrInvalidInput
 	}
 	if i.Direction == DirectionIn {
-		if !isInCategory(i.InCategory) || i.OutDestination != "" || i.WorkOrderNumber != "" || i.SPPNumber != "" || i.DriverID != 0 || i.DriverName != "" || i.Note != "" {
+		if !isInCategory(i.InCategory) || i.OutDestination != "" {
 			return ErrInvalidInput
 		}
-		return nil
+		return validateInSource(i)
 	}
 	if !isOutDestination(i.OutDestination) || i.InCategory != "" {
 		return ErrInvalidInput
@@ -79,6 +79,26 @@ func (i Input) Validate() error {
 		if i.WorkOrderNumber != "" || i.SPPNumber != "" || i.DriverID == 0 || i.DriverName == "" || i.Note == "" {
 			return ErrInvalidInput
 		}
+	}
+	return nil
+}
+
+func validateInSource(input Input) error {
+	switch {
+	case input.WorkOrderNumber != "":
+		if input.SPPNumber != "" || input.DriverID != 0 || input.DriverName != "" || input.Note != "" {
+			return ErrInvalidInput
+		}
+	case input.SPPNumber != "":
+		if input.WorkOrderNumber != "" || input.DriverID != 0 || input.DriverName != "" || input.Note != "" {
+			return ErrInvalidInput
+		}
+	case input.DriverID != 0 || input.DriverName != "" || input.Note != "":
+		if input.DriverID == 0 || input.DriverName == "" || input.Note == "" {
+			return ErrInvalidInput
+		}
+	default:
+		return ErrInvalidInput
 	}
 	return nil
 }
