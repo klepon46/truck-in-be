@@ -44,35 +44,62 @@ func NewClient(config Config) *Client {
 
 func (c *Client) Workshop(ctx context.Context, number string) (movement.Document, error) {
 	var response struct {
-		Data struct {
+		Success *bool `json:"success"`
+		Data    *struct {
 			Number     string `json:"work_order_number"`
 			DriverName string `json:"driver_name"`
+			VehicleNo  string `json:"vehicle_no"`
+			PoliceNo   string `json:"police_no"`
 		} `json:"data"`
 	}
 	if err := c.getJSON(ctx, c.config.WorkshopBaseURL, c.config.WorkshopToken, "/internal/v1/work-orders/by-wo?wo-number="+url.QueryEscape(number), &response); err != nil {
 		return movement.Document{}, err
 	}
-	if response.Data.Number != number || strings.TrimSpace(response.Data.DriverName) == "" {
+	if response.Success == nil || !*response.Success || response.Data == nil || response.Data.Number != number {
 		return movement.Document{}, ErrNotFound
 	}
-	return movement.Document{DriverName: strings.TrimSpace(response.Data.DriverName)}, nil
+	document := movement.Document{
+		NoLambung:  strings.ToUpper(strings.TrimSpace(response.Data.VehicleNo)),
+		NoPolisi:   strings.ToUpper(strings.TrimSpace(response.Data.PoliceNo)),
+		DriverName: strings.TrimSpace(response.Data.DriverName),
+	}
+	if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" {
+		return movement.Document{}, ErrNotFound
+	}
+	return document, nil
 }
 
 func (c *Client) SPP(ctx context.Context, number string) (movement.Document, error) {
 	var response struct {
-		Data []struct {
+		Success *bool `json:"success"`
+		Data    *[]struct {
 			Number       string `json:"trans_no"`
 			DriverName   string `json:"driver_name"`
-			CustomerID   string `json:"customer_id"`
+			CustomerID   string `json:"customer_code"`
 			CustomerName string `json:"customer_name"`
+			VehicleNo    string `json:"unit_name"`
+			PoliceNo     string `json:"unit_police_no"`
 		} `json:"data"`
 	}
 	if err := c.getJSON(ctx, c.config.SAOSBaseURL, c.config.SAOSToken, "/api/v1/loading-orders?transNo="+url.QueryEscape(number), &response); err != nil {
 		return movement.Document{}, err
 	}
-	for _, record := range response.Data {
-		if record.Number == number && strings.TrimSpace(record.DriverName) != "" {
-			return movement.Document{DriverName: strings.TrimSpace(record.DriverName), CustomerID: strings.TrimSpace(record.CustomerID), CustomerName: strings.TrimSpace(record.CustomerName)}, nil
+	if response.Success == nil || !*response.Success || response.Data == nil {
+		return movement.Document{}, ErrNotFound
+	}
+	for _, record := range *response.Data {
+		if record.Number == number {
+			document := movement.Document{
+				NoLambung:    strings.ToUpper(strings.TrimSpace(record.VehicleNo)),
+				NoPolisi:     strings.ToUpper(strings.TrimSpace(record.PoliceNo)),
+				DriverName:   strings.TrimSpace(record.DriverName),
+				CustomerID:   strings.TrimSpace(record.CustomerID),
+				CustomerName: strings.TrimSpace(record.CustomerName),
+			}
+			if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" {
+				return movement.Document{}, ErrNotFound
+			}
+			return document, nil
 		}
 	}
 	return movement.Document{}, ErrNotFound

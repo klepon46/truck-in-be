@@ -34,6 +34,8 @@ type Documents interface {
 }
 
 type Document struct {
+	NoLambung    string
+	NoPolisi     string
 	DriverName   string
 	CustomerID   string
 	CustomerName string
