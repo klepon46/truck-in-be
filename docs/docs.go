@@ -973,6 +973,22 @@ const docTemplate = `{
                     "type": "string",
                     "x-nullable": "true"
                 },
+                "cycleId": {
+                    "type": "integer",
+                    "x-nullable": "true"
+                },
+                "departureSppNumber": {
+                    "type": "string",
+                    "x-nullable": "true"
+                },
+                "departureTransactionId": {
+                    "type": "integer",
+                    "x-nullable": "true"
+                },
+                "departureWorkOrderNumber": {
+                    "type": "string",
+                    "x-nullable": "true"
+                },
                 "direction": {
                     "$ref": "#/definitions/movement.Direction"
                 },
@@ -1059,6 +1075,22 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "customerName": {
+                    "type": "string",
+                    "x-nullable": "true"
+                },
+                "cycleId": {
+                    "type": "integer",
+                    "x-nullable": "true"
+                },
+                "departureSppNumber": {
+                    "type": "string",
+                    "x-nullable": "true"
+                },
+                "departureTransactionId": {
+                    "type": "integer",
+                    "x-nullable": "true"
+                },
+                "departureWorkOrderNumber": {
                     "type": "string",
                     "x-nullable": "true"
                 },

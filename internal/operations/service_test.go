@@ -4,6 +4,7 @@ import (
 	"context"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jmoiron/sqlx"
@@ -33,6 +34,54 @@ WHERE u.is_active = TRUE`)).
 	}
 	if result != (Dashboard{TotalUnits: 12, UnitsIn: 5, UnitsOut: 4, UnitsNoStatus: 3}) {
 		t.Fatalf("Dashboard() = %#v", result)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestListTransactionsMapsCycleAndDepartureReferences(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New() error = %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT COUNT(*) FROM movement_transactions m `)).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	now := time.Date(2026, time.October, 19, 7, 15, 0, 0, time.UTC)
+	mock.ExpectQuery(regexp.QuoteMeta(`
+SELECT m.transaction_id, m.no_lambung_snapshot, m.no_polisi_snapshot, m.direction, m.in_category,
+       m.out_destination, m.driver_name_snapshot, m.work_order_number, m.spp_number,
+       m.customer_name_snapshot, m.note, m.actor_name_snapshot, m.occurred_at,
+       c.cycle_id, c.out_transaction_id AS departure_transaction_id,
+       departure.work_order_number AS departure_work_order_number,
+       departure.spp_number AS departure_spp_number
+FROM movement_transactions m
+LEFT JOIN movement_cycles c ON m.transaction_id = c.out_transaction_id OR m.transaction_id = c.in_transaction_id
+LEFT JOIN movement_transactions departure ON departure.transaction_id = c.out_transaction_id
+ ORDER BY m.transaction_id DESC LIMIT ? OFFSET ?`)).
+		WithArgs(25, 0).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"transaction_id", "no_lambung_snapshot", "no_polisi_snapshot", "direction", "in_category",
+			"out_destination", "driver_name_snapshot", "work_order_number", "spp_number",
+			"customer_name_snapshot", "note", "actor_name_snapshot", "occurred_at", "cycle_id",
+			"departure_transaction_id", "departure_work_order_number", "departure_spp_number",
+		}).AddRow(
+			int64(20), "SAMT223", "DA 1234 AB", "IN", "WAITING_FOR_ASSIGNMENT", nil, nil, nil, nil,
+			nil, nil, "satpam", now, int64(91), int64(19), "WO-001", nil,
+		))
+
+	transactions, page, err := NewService(sqlx.NewDb(db, "sqlmock")).ListTransactions(context.Background(), TransactionFilter{Page: NormalizePage(1, 25)})
+	if err != nil {
+		t.Fatalf("ListTransactions() error = %v", err)
+	}
+	if page.Total != 1 || len(transactions) != 1 {
+		t.Fatalf("ListTransactions() = %#v, page = %#v", transactions, page)
+	}
+	transaction := transactions[0]
+	if transaction.CycleID == nil || *transaction.CycleID != 91 || transaction.DepartureTransactionID == nil || *transaction.DepartureTransactionID != 19 || transaction.DepartureWorkOrderNumber == nil || *transaction.DepartureWorkOrderNumber != "WO-001" {
+		t.Fatalf("transaction = %#v", transaction)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)

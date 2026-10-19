@@ -40,24 +40,28 @@ type Document struct {
 }
 
 type Transaction struct {
-	ID              int64     `db:"transaction_id" json:"transactionId"`
-	NoLambung       string    `db:"no_lambung_snapshot" json:"noLambung"`
-	NoPolisi        string    `db:"no_polisi_snapshot" json:"noPolisi"`
-	Direction       Direction `db:"direction" json:"direction"`
-	InCategory      *string   `db:"in_category" json:"inCategory" extensions:"x-nullable=true"`
-	OutDestination  *string   `db:"out_destination" json:"outDestination" extensions:"x-nullable=true"`
-	DriverID        *int64    `db:"driver_id" json:"driverId" extensions:"x-nullable=true"`
-	DriverName      *string   `db:"driver_name_snapshot" json:"driverName" extensions:"x-nullable=true"`
-	WorkOrderNumber *string   `db:"work_order_number" json:"workOrderNumber" extensions:"x-nullable=true"`
-	SPPNumber       *string   `db:"spp_number" json:"sppNumber" extensions:"x-nullable=true"`
-	CustomerID      *string   `db:"customer_id" json:"customerId" extensions:"x-nullable=true"`
-	CustomerName    *string   `db:"customer_name_snapshot" json:"customerName" extensions:"x-nullable=true"`
-	Note            *string   `db:"note" json:"note" extensions:"x-nullable=true"`
-	ActorID         string    `db:"actor_id" json:"actorId"`
-	ActorName       string    `db:"actor_name_snapshot" json:"actorName"`
-	OccurredAt      time.Time `db:"occurred_at" json:"occurredAt"`
-	RequestHash     []byte    `db:"request_hash" json:"-"`
-	LambungUnitID   int64     `db:"lambung_unit_id" json:"lambungUnitId"`
+	ID                       int64     `db:"transaction_id" json:"transactionId"`
+	CycleID                  *int64    `db:"cycle_id" json:"cycleId" extensions:"x-nullable=true"`
+	DepartureTransactionID   *int64    `db:"departure_transaction_id" json:"departureTransactionId" extensions:"x-nullable=true"`
+	DepartureWorkOrderNumber *string   `db:"departure_work_order_number" json:"departureWorkOrderNumber" extensions:"x-nullable=true"`
+	DepartureSPPNumber       *string   `db:"departure_spp_number" json:"departureSppNumber" extensions:"x-nullable=true"`
+	NoLambung                string    `db:"no_lambung_snapshot" json:"noLambung"`
+	NoPolisi                 string    `db:"no_polisi_snapshot" json:"noPolisi"`
+	Direction                Direction `db:"direction" json:"direction"`
+	InCategory               *string   `db:"in_category" json:"inCategory" extensions:"x-nullable=true"`
+	OutDestination           *string   `db:"out_destination" json:"outDestination" extensions:"x-nullable=true"`
+	DriverID                 *int64    `db:"driver_id" json:"driverId" extensions:"x-nullable=true"`
+	DriverName               *string   `db:"driver_name_snapshot" json:"driverName" extensions:"x-nullable=true"`
+	WorkOrderNumber          *string   `db:"work_order_number" json:"workOrderNumber" extensions:"x-nullable=true"`
+	SPPNumber                *string   `db:"spp_number" json:"sppNumber" extensions:"x-nullable=true"`
+	CustomerID               *string   `db:"customer_id" json:"customerId" extensions:"x-nullable=true"`
+	CustomerName             *string   `db:"customer_name_snapshot" json:"customerName" extensions:"x-nullable=true"`
+	Note                     *string   `db:"note" json:"note" extensions:"x-nullable=true"`
+	ActorID                  string    `db:"actor_id" json:"actorId"`
+	ActorName                string    `db:"actor_name_snapshot" json:"actorName"`
+	OccurredAt               time.Time `db:"occurred_at" json:"occurredAt"`
+	RequestHash              []byte    `db:"request_hash" json:"-"`
+	LambungUnitID            int64     `db:"lambung_unit_id" json:"lambungUnitId"`
 }
 
 type Service struct {
@@ -141,6 +145,19 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 		}
 		return Transaction{}, fmt.Errorf("insert movement transaction: %w", err)
 	}
+	if input.Direction == DirectionOut {
+		cycle, err := beginCycle(ctx, tx, snapshot.ID, transaction)
+		if err != nil {
+			return Transaction{}, fmt.Errorf("start movement cycle: %w", err)
+		}
+		transaction.applyCycle(cycle)
+	} else if snapshot.CurrentTransactionID != nil {
+		cycle, err := closeCycle(ctx, tx, *snapshot.CurrentTransactionID, transaction.ID)
+		if err != nil {
+			return Transaction{}, fmt.Errorf("complete movement cycle: %w", err)
+		}
+		transaction.applyCycle(cycle)
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE unit_snapshot SET current_transaction_id = $1 WHERE lambung_unit_id = $2`, transaction.ID, snapshot.ID); err != nil {
 		return Transaction{}, fmt.Errorf("update unit snapshot: %w", err)
 	}
@@ -148,6 +165,13 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 		return Transaction{}, fmt.Errorf("commit movement transaction: %w", err)
 	}
 	return transaction, nil
+}
+
+func (t *Transaction) applyCycle(cycle movementCycle) {
+	t.CycleID = &cycle.ID
+	t.DepartureTransactionID = &cycle.DepartureTransactionID
+	t.DepartureWorkOrderNumber = cycle.DepartureWorkOrderNumber
+	t.DepartureSPPNumber = cycle.DepartureSPPNumber
 }
 
 func (s *Service) validateDocument(ctx context.Context, input *Input) (Document, error) {
@@ -275,11 +299,17 @@ type queryer interface {
 func (s *Service) findByKey(ctx context.Context, query queryer, idempotencyKey string) (Transaction, bool, error) {
 	var transaction Transaction
 	err := query.GetContext(ctx, &transaction, `
-SELECT transaction_id, request_hash, lambung_unit_id, no_lambung_snapshot,
-       no_polisi_snapshot, direction, in_category, out_destination, driver_id, driver_name_snapshot,
-       work_order_number, spp_number, customer_id, customer_name_snapshot, note, actor_id,
-       actor_name_snapshot, occurred_at
-FROM movement_transactions WHERE idempotency_key = $1`, idempotencyKey)
+SELECT m.transaction_id, m.request_hash, m.lambung_unit_id, m.no_lambung_snapshot,
+       m.no_polisi_snapshot, m.direction, m.in_category, m.out_destination, m.driver_id, m.driver_name_snapshot,
+       m.work_order_number, m.spp_number, m.customer_id, m.customer_name_snapshot, m.note, m.actor_id,
+       m.actor_name_snapshot, m.occurred_at, c.cycle_id,
+       c.out_transaction_id AS departure_transaction_id,
+       departure.work_order_number AS departure_work_order_number,
+       departure.spp_number AS departure_spp_number
+FROM movement_transactions m
+LEFT JOIN movement_cycles c ON m.transaction_id = c.out_transaction_id OR m.transaction_id = c.in_transaction_id
+LEFT JOIN movement_transactions departure ON departure.transaction_id = c.out_transaction_id
+WHERE m.idempotency_key = $1`, idempotencyKey)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Transaction{}, false, nil
 	}

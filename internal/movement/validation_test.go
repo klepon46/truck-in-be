@@ -11,6 +11,52 @@ func TestValidateTransitionAllowsCustomerOnlyForActiveDeliverySPP(t *testing.T) 
 	}
 }
 
+func TestValidateTransitionPreventsConsecutiveDirections(t *testing.T) {
+	tests := []struct {
+		name        string
+		status      Status
+		direction   Direction
+		category    string
+		destination string
+		wantError   bool
+	}{
+		{
+			name:      "allows first IN without a cycle",
+			direction: DirectionIn,
+			category:  InWaitingForAssignment,
+		},
+		{
+			name:      "allows IN after OUT",
+			status:    Status{Direction: DirectionOut},
+			direction: DirectionIn,
+			category:  InWaitingForAssignment,
+		},
+		{
+			name:      "rejects IN after IN",
+			status:    Status{Direction: DirectionIn, InCategory: InWaitingForAssignment},
+			direction: DirectionIn,
+			category:  InWaitingForAssignment,
+			wantError: true,
+		},
+		{
+			name:        "rejects OUT after OUT",
+			status:      Status{Direction: DirectionOut},
+			direction:   DirectionOut,
+			destination: OutOther,
+			wantError:   true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := ValidateTransition(test.status, test.direction, test.category, test.destination)
+			if (err != nil) != test.wantError {
+				t.Fatalf("ValidateTransition() error = %v, wantError %t", err, test.wantError)
+			}
+		})
+	}
+}
+
 func TestValidateInputRequiresOtherDriverAndNote(t *testing.T) {
 	input := Input{Direction: DirectionOut, OutDestination: OutOther}
 	if err := input.Validate(); err == nil {

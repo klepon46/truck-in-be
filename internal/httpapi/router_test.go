@@ -266,6 +266,9 @@ func TestRouterServesGeneratedSwaggerDefinition(t *testing.T) {
 	if _, ok := properties["data"]; !ok {
 		t.Fatal("Swagger movement response does not document the data envelope")
 	}
+	if !bytes.Contains(response.Body.Bytes(), []byte(`"cycleId"`)) {
+		t.Fatal("Swagger movement response does not document cycleId")
+	}
 }
 
 func TestRouterRedirectsLegacySwaggerRoute(t *testing.T) {

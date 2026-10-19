@@ -264,6 +264,12 @@ Success returns `201`:
 
 The server owns `occurredAt`, document-derived driver/customer fields, snapshots, and actor audit fields. Render the returned transaction as the source of truth.
 
+### Movement Cycles
+
+Every OUT starts a backend-generated `cycleId`; the next IN for that unit returns the same ID and closes the cycle. OUT and IN keep separate `transactionId` values. The response and transaction history also expose `departureTransactionId`, `departureWorkOrderNumber`, and `departureSppNumber` so a returning IN can show its linked departure document. The first recorded IN for a unit has null cycle and departure fields.
+
+Clients must not send any cycle or departure fields in a movement request. See [mobile-movement-cycle-handover.md](mobile-movement-cycle-handover.md) for the mobile display and error-handling contract.
+
 ### Movement Error Handling
 
 | Status | Code | Frontend behavior |
@@ -338,7 +344,7 @@ Use the same unit fields as the list response. A non-positive or non-numeric `id
 GET /api/v1/units/{id}/transactions?page=&pageSize=
 ```
 
-Transactions are newest first. Use the same pagination controls as the unit list. Each result includes `transactionId`, unit snapshots, direction, IN category or OUT destination, driver, WO/SPP, customer, note, actor name, and `occurredAt`.
+Transactions are newest first. Use the same pagination controls as the unit list. Each result includes `transactionId`, `cycleId`, departure references, unit snapshots, direction, IN category or OUT destination, driver, WO/SPP, customer, note, actor name, and `occurredAt`.
 
 ### Transaction History
 
@@ -403,6 +409,7 @@ UnitLog has no public endpoints to prevalidate a work order, SPP, or QR unit. Su
 - `docs/swagger.yaml`: generated OpenAPI 2.0 contract.
 - `docs/swagger.json`: generated JSON OpenAPI contract.
 - `docs/mobile-driver-search-handover.md`: mobile implementation guide for the active-driver picker.
+- `docs/mobile-movement-cycle-handover.md`: mobile implementation guide for movement-cycle display and validation.
 - `internal/httpapi/router.go`: route, validation, status-code, and CSV behavior.
 - `internal/movement/validation.go`: exact mutually exclusive movement input rules.
 - `internal/operations/service.go`: filtering, pagination, status, and export behavior.

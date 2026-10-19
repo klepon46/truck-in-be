@@ -84,6 +84,9 @@ func (i Input) Validate() error {
 }
 
 func ValidateTransition(status Status, direction Direction, inCategory, outDestination string) error {
+	if status.Direction == direction {
+		return ErrInvalidTransition
+	}
 	if direction == DirectionIn {
 		if !isInCategory(inCategory) {
 			return ErrInvalidTransition
