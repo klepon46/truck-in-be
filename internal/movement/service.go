@@ -158,6 +158,11 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 		}
 		transaction.applyCycle(cycle)
 	}
+	if snapshot.CurrentTransactionID != nil {
+		if err := completeStatus(ctx, tx, *snapshot.CurrentTransactionID); err != nil {
+			return Transaction{}, fmt.Errorf("complete previous movement status: %w", err)
+		}
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE unit_snapshot SET current_transaction_id = $1 WHERE lambung_unit_id = $2`, transaction.ID, snapshot.ID); err != nil {
 		return Transaction{}, fmt.Errorf("update unit snapshot: %w", err)
 	}

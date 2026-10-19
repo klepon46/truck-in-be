@@ -221,6 +221,41 @@ func TestTransactionApplyCycleIncludesDepartureReferences(t *testing.T) {
 	}
 }
 
+func TestCompleteStatusStoresFinishedDuration(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New() error = %v", err)
+	}
+	defer db.Close()
+
+	database := sqlx.NewDb(db, "sqlmock")
+	mock.ExpectBegin()
+	tx, err := database.BeginTxx(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("BeginTxx() error = %v", err)
+	}
+	mock.ExpectExec(regexp.QuoteMeta(`
+INSERT INTO movement_status_durations (transaction_id, duration_seconds, completed_at)
+SELECT transaction_id,
+       GREATEST(0, EXTRACT(EPOCH FROM NOW() - occurred_at)::BIGINT),
+       NOW()
+FROM movement_transactions
+WHERE transaction_id = $1`)).
+		WithArgs(int64(19)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectRollback()
+
+	if err := completeStatus(context.Background(), tx, 19); err != nil {
+		t.Fatalf("completeStatus() error = %v", err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatalf("Rollback() error = %v", err)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 type testDocuments struct{}
 
 func (testDocuments) Workshop(context.Context, string) (Document, error) {
@@ -250,7 +285,7 @@ func TestRecordStartsCycleForOutMovement(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT u.lambung_unit_id")).
 		WithArgs("SAMT119").
 		WillReturnRows(sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi", "current_transaction_id", "direction", "in_category"}).
-			AddRow(int64(7), "SAMT119", "DA 1234 AB", nil, nil, nil))
+			AddRow(int64(7), "SAMT119", "DA 1234 AB", int64(18), "IN", InWaitingForAssignment))
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT m.transaction_id")).
 		WithArgs("96942009-f8c4-4dbf-b7e0-6d571765166a").
 		WillReturnRows(sqlmock.NewRows(transactionCycleColumns))
@@ -282,6 +317,15 @@ VALUES ($1, $2)
 RETURNING cycle_id`)).
 		WithArgs(int64(7), int64(19)).
 		WillReturnRows(sqlmock.NewRows([]string{"cycle_id"}).AddRow(int64(91)))
+	mock.ExpectExec(regexp.QuoteMeta(`
+INSERT INTO movement_status_durations (transaction_id, duration_seconds, completed_at)
+SELECT transaction_id,
+       GREATEST(0, EXTRACT(EPOCH FROM NOW() - occurred_at)::BIGINT),
+       NOW()
+FROM movement_transactions
+WHERE transaction_id = $1`)).
+		WithArgs(int64(18)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(regexp.QuoteMeta(`UPDATE unit_snapshot SET current_transaction_id = $1 WHERE lambung_unit_id = $2`)).
 		WithArgs(int64(19), int64(7)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -358,6 +402,15 @@ UPDATE movement_cycles
 SET in_transaction_id = $1, completed_at = NOW()
 WHERE cycle_id = $2 AND in_transaction_id IS NULL`)).
 		WithArgs(int64(20), int64(91)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`
+INSERT INTO movement_status_durations (transaction_id, duration_seconds, completed_at)
+SELECT transaction_id,
+       GREATEST(0, EXTRACT(EPOCH FROM NOW() - occurred_at)::BIGINT),
+       NOW()
+FROM movement_transactions
+WHERE transaction_id = $1`)).
+		WithArgs(int64(19)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(regexp.QuoteMeta(`UPDATE unit_snapshot SET current_transaction_id = $1 WHERE lambung_unit_id = $2`)).
 		WithArgs(int64(20), int64(7)).

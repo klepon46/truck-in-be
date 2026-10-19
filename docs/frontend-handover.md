@@ -328,7 +328,7 @@ Render these unit fields:
 | `status` | `NULL`, `OUT`, or `IN - <inCategory>`. Use this display-ready field. |
 | `outDestination`, `driverName` | May be `null`; show a placeholder. |
 | `lastUpdatedAt` | May be `null`; convert from UTC for display. |
-| `durationSeconds` | Format client-side. |
+| `durationSeconds` | Current live status duration in seconds; format client-side. |
 
 ### Unit Detail
 
@@ -344,7 +344,9 @@ Use the same unit fields as the list response. A non-positive or non-numeric `id
 GET /api/v1/units/{id}/transactions?page=&pageSize=
 ```
 
-Transactions are newest first. Use the same pagination controls as the unit list. Each result includes `transactionId`, `cycleId`, departure references, unit snapshots, direction, IN category or OUT destination, driver, WO/SPP, customer, note, actor name, and `occurredAt`.
+Transactions are newest first. Use the same pagination controls as the unit list. Each result includes `transactionId`, `cycleId`, departure references, unit snapshots, direction, IN category or OUT destination, driver, WO/SPP, customer, note, actor name, `occurredAt`, `durationSeconds`, and `statusCompletedAt`.
+
+`durationSeconds` is always a non-negative integer in seconds. For a completed status, it is saved when the next movement is recorded and no longer changes; `statusCompletedAt` contains that next movement's server timestamp. For the unit's current status, `statusCompletedAt` is `null` and `durationSeconds` is calculated by the server at response time. Format duration client-side; do not recompute completed durations from browser timestamps.
 
 ### Transaction History
 
@@ -370,7 +372,7 @@ GET /api/v1/units/export?query=&status=&destination=&includeInactive=
 GET /api/v1/transactions/export?query=&direction=&detail=&from=&to=
 ```
 
-Both routes return `text/csv` with an attachment filename. Pass exactly the same relevant filter values as their list screen.
+Both routes return `text/csv` with an attachment filename. Pass exactly the same relevant filter values as their list screen. Transaction exports include `duration_seconds` and `status_completed_at`; the latter is blank for an active status.
 
 Current implementation limitation: each CSV export fetches at most the first 100 matching rows and does not return pagination metadata. Do not label it as a complete all-record export. Request a backend export improvement if the operations team requires full datasets.
 
@@ -401,6 +403,7 @@ UnitLog has no public endpoints to prevalidate a work order, SPP, or QR unit. Su
 - Persist filters and 1-based pagination in route query state where appropriate.
 - Render null fields as an explicit empty state, not as `undefined` or a fabricated value.
 - Convert UTC timestamps to browser-local display time.
+- Treat transaction durations with a non-null `statusCompletedAt` as final; current unit durations remain live until the next movement.
 - Download CSV as a file and disclose the 100-row export limit.
 - Use unit `id` for detail and transaction-history navigation.
 

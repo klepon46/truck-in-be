@@ -56,20 +56,23 @@ SELECT m.transaction_id, m.no_lambung_snapshot, m.no_polisi_snapshot, m.directio
        m.customer_name_snapshot, m.note, m.actor_name_snapshot, m.occurred_at,
        c.cycle_id, c.out_transaction_id AS departure_transaction_id,
        departure.work_order_number AS departure_work_order_number,
-       departure.spp_number AS departure_spp_number
+       departure.spp_number AS departure_spp_number,
+       COALESCE(d.duration_seconds, GREATEST(0, EXTRACT(EPOCH FROM NOW() - m.occurred_at)::BIGINT)) AS duration_seconds,
+       d.completed_at AS status_completed_at
 FROM movement_transactions m
 LEFT JOIN movement_cycles c ON m.transaction_id = c.out_transaction_id OR m.transaction_id = c.in_transaction_id
 LEFT JOIN movement_transactions departure ON departure.transaction_id = c.out_transaction_id
+LEFT JOIN movement_status_durations d ON d.transaction_id = m.transaction_id
  ORDER BY m.transaction_id DESC LIMIT ? OFFSET ?`)).
 		WithArgs(25, 0).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"transaction_id", "no_lambung_snapshot", "no_polisi_snapshot", "direction", "in_category",
 			"out_destination", "driver_name_snapshot", "work_order_number", "spp_number",
 			"customer_name_snapshot", "note", "actor_name_snapshot", "occurred_at", "cycle_id",
-			"departure_transaction_id", "departure_work_order_number", "departure_spp_number",
+			"departure_transaction_id", "departure_work_order_number", "departure_spp_number", "duration_seconds", "status_completed_at",
 		}).AddRow(
 			int64(20), "SAMT223", "DA 1234 AB", "IN", "WAITING_FOR_ASSIGNMENT", nil, nil, nil, nil,
-			nil, nil, "satpam", now, int64(91), int64(19), "WO-001", nil,
+			nil, nil, "satpam", now, int64(91), int64(19), "WO-001", nil, int64(1800), now.Add(30*time.Minute),
 		))
 
 	transactions, page, err := NewService(sqlx.NewDb(db, "sqlmock")).ListTransactions(context.Background(), TransactionFilter{Page: NormalizePage(1, 25)})
@@ -82,6 +85,9 @@ LEFT JOIN movement_transactions departure ON departure.transaction_id = c.out_tr
 	transaction := transactions[0]
 	if transaction.CycleID == nil || *transaction.CycleID != 91 || transaction.DepartureTransactionID == nil || *transaction.DepartureTransactionID != 19 || transaction.DepartureWorkOrderNumber == nil || *transaction.DepartureWorkOrderNumber != "WO-001" {
 		t.Fatalf("transaction = %#v", transaction)
+	}
+	if transaction.DurationSeconds != 1800 || transaction.StatusCompletedAt == nil || !transaction.StatusCompletedAt.Equal(now.Add(30*time.Minute)) {
+		t.Fatalf("transaction duration = %d, completedAt = %#v", transaction.DurationSeconds, transaction.StatusCompletedAt)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)

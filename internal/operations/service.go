@@ -70,23 +70,25 @@ type TransactionFilter struct {
 }
 
 type Transaction struct {
-	ID                       int64     `db:"transaction_id" json:"transactionId"`
-	CycleID                  *int64    `db:"cycle_id" json:"cycleId" extensions:"x-nullable=true"`
-	DepartureTransactionID   *int64    `db:"departure_transaction_id" json:"departureTransactionId" extensions:"x-nullable=true"`
-	DepartureWorkOrderNumber *string   `db:"departure_work_order_number" json:"departureWorkOrderNumber" extensions:"x-nullable=true"`
-	DepartureSPPNumber       *string   `db:"departure_spp_number" json:"departureSppNumber" extensions:"x-nullable=true"`
-	NoLambung                string    `db:"no_lambung_snapshot" json:"noLambung"`
-	NoPolisi                 string    `db:"no_polisi_snapshot" json:"noPolisi"`
-	Direction                string    `db:"direction" json:"direction"`
-	InCategory               *string   `db:"in_category" json:"inCategory" extensions:"x-nullable=true"`
-	OutDestination           *string   `db:"out_destination" json:"outDestination" extensions:"x-nullable=true"`
-	DriverName               *string   `db:"driver_name_snapshot" json:"driverName" extensions:"x-nullable=true"`
-	WorkOrderNumber          *string   `db:"work_order_number" json:"workOrderNumber" extensions:"x-nullable=true"`
-	SPPNumber                *string   `db:"spp_number" json:"sppNumber" extensions:"x-nullable=true"`
-	CustomerName             *string   `db:"customer_name_snapshot" json:"customerName" extensions:"x-nullable=true"`
-	Note                     *string   `db:"note" json:"note" extensions:"x-nullable=true"`
-	ActorName                string    `db:"actor_name_snapshot" json:"actorName"`
-	OccurredAt               time.Time `db:"occurred_at" json:"occurredAt"`
+	ID                       int64      `db:"transaction_id" json:"transactionId"`
+	CycleID                  *int64     `db:"cycle_id" json:"cycleId" extensions:"x-nullable=true"`
+	DepartureTransactionID   *int64     `db:"departure_transaction_id" json:"departureTransactionId" extensions:"x-nullable=true"`
+	DepartureWorkOrderNumber *string    `db:"departure_work_order_number" json:"departureWorkOrderNumber" extensions:"x-nullable=true"`
+	DepartureSPPNumber       *string    `db:"departure_spp_number" json:"departureSppNumber" extensions:"x-nullable=true"`
+	NoLambung                string     `db:"no_lambung_snapshot" json:"noLambung"`
+	NoPolisi                 string     `db:"no_polisi_snapshot" json:"noPolisi"`
+	Direction                string     `db:"direction" json:"direction"`
+	InCategory               *string    `db:"in_category" json:"inCategory" extensions:"x-nullable=true"`
+	OutDestination           *string    `db:"out_destination" json:"outDestination" extensions:"x-nullable=true"`
+	DriverName               *string    `db:"driver_name_snapshot" json:"driverName" extensions:"x-nullable=true"`
+	WorkOrderNumber          *string    `db:"work_order_number" json:"workOrderNumber" extensions:"x-nullable=true"`
+	SPPNumber                *string    `db:"spp_number" json:"sppNumber" extensions:"x-nullable=true"`
+	CustomerName             *string    `db:"customer_name_snapshot" json:"customerName" extensions:"x-nullable=true"`
+	Note                     *string    `db:"note" json:"note" extensions:"x-nullable=true"`
+	ActorName                string     `db:"actor_name_snapshot" json:"actorName"`
+	OccurredAt               time.Time  `db:"occurred_at" json:"occurredAt"`
+	DurationSeconds          int64      `db:"duration_seconds" json:"durationSeconds"`
+	StatusCompletedAt        *time.Time `db:"status_completed_at" json:"statusCompletedAt" extensions:"x-nullable=true"`
 }
 
 type Service struct{ db *sqlx.DB }
@@ -156,10 +158,13 @@ SELECT m.transaction_id, m.no_lambung_snapshot, m.no_polisi_snapshot, m.directio
        m.customer_name_snapshot, m.note, m.actor_name_snapshot, m.occurred_at,
        c.cycle_id, c.out_transaction_id AS departure_transaction_id,
        departure.work_order_number AS departure_work_order_number,
-       departure.spp_number AS departure_spp_number
+       departure.spp_number AS departure_spp_number,
+       COALESCE(d.duration_seconds, GREATEST(0, EXTRACT(EPOCH FROM NOW() - m.occurred_at)::BIGINT)) AS duration_seconds,
+       d.completed_at AS status_completed_at
 FROM movement_transactions m
 LEFT JOIN movement_cycles c ON m.transaction_id = c.out_transaction_id OR m.transaction_id = c.in_transaction_id
-LEFT JOIN movement_transactions departure ON departure.transaction_id = c.out_transaction_id `+where+` ORDER BY m.transaction_id DESC LIMIT ? OFFSET ?`), args...)
+LEFT JOIN movement_transactions departure ON departure.transaction_id = c.out_transaction_id
+LEFT JOIN movement_status_durations d ON d.transaction_id = m.transaction_id `+where+` ORDER BY m.transaction_id DESC LIMIT ? OFFSET ?`), args...)
 	filter.Total = total
 	return transactions, filter.Page, err
 }

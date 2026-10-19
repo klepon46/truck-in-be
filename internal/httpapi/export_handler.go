@@ -80,13 +80,13 @@ func transactionsExportHandler(service *operations.Service) gin.HandlerFunc {
 		c.Header("Content-Disposition", `attachment; filename="transactions.csv"`)
 		c.Header("Content-Type", "text/csv; charset=utf-8")
 		writer := csv.NewWriter(c.Writer)
-		_ = writer.Write([]string{"transaction_id", "occurred_at", "no_lambung", "direction", "detail", "driver", "work_order", "spp", "customer", "actor", "note"})
+		_ = writer.Write([]string{"transaction_id", "occurred_at", "status_completed_at", "duration_seconds", "no_lambung", "direction", "detail", "driver", "work_order", "spp", "customer", "actor", "note"})
 		for _, transaction := range transactions {
 			detail := value(transaction.OutDestination)
 			if transaction.InCategory != nil {
 				detail = *transaction.InCategory
 			}
-			_ = writer.Write([]string{strconv.FormatInt(transaction.ID, 10), transaction.OccurredAt.UTC().Format(time.RFC3339), csvValue(transaction.NoLambung), csvValue(transaction.Direction), csvValue(detail), csvValue(value(transaction.DriverName)), csvValue(value(transaction.WorkOrderNumber)), csvValue(value(transaction.SPPNumber)), csvValue(value(transaction.CustomerName)), csvValue(transaction.ActorName), csvValue(value(transaction.Note))})
+			_ = writer.Write([]string{strconv.FormatInt(transaction.ID, 10), transaction.OccurredAt.UTC().Format(time.RFC3339), csvValue(timeValue(transaction.StatusCompletedAt)), strconv.FormatInt(transaction.DurationSeconds, 10), csvValue(transaction.NoLambung), csvValue(transaction.Direction), csvValue(detail), csvValue(value(transaction.DriverName)), csvValue(value(transaction.WorkOrderNumber)), csvValue(value(transaction.SPPNumber)), csvValue(value(transaction.CustomerName)), csvValue(transaction.ActorName), csvValue(value(transaction.Note))})
 		}
 		writer.Flush()
 	}

@@ -18,7 +18,7 @@ OUT transaction #123, cycle #50
 
 ## API Response Fields
 
-`POST /api/v1/movements` and transaction-history responses include these additive fields:
+`POST /api/v1/movements` and transaction-history responses include the additive cycle and departure fields below. Transaction-history responses additionally include the duration fields.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -26,6 +26,8 @@ OUT transaction #123, cycle #50
 | `departureTransactionId` | `number \| null` | The OUT transaction that started the cycle. |
 | `departureWorkOrderNumber` | `string \| null` | WO from the departure, if the OUT used `BENGKEL_LUAR`. |
 | `departureSppNumber` | `string \| null` | SPP from the departure, if the OUT used `FILLING_SHED_KUIN` or `CUSTOMER`. |
+| `durationSeconds` | `number` | Transaction-history only: duration of the status in seconds; final after the next movement records. |
+| `statusCompletedAt` | `string \| null` | Transaction-history only: server timestamp when the status ended; `null` while it remains current. |
 
 ### OUT example
 
@@ -82,6 +84,7 @@ OUT transaction #123, cycle #50
 4. Render null departure fields as “No linked departure” rather than an empty or fabricated document number.
 5. Refresh transaction history from UnitLog instead of attempting to correlate records locally by timestamp, unit code, WO, or SPP.
 6. Reuse the same `Idempotency-Key` only for a retry of the exact same movement request. A successful retry returns the same transaction and cycle ID.
+7. Show a completed duration from `durationSeconds` as final when `statusCompletedAt` is non-null. Current-status timers may be refreshed from UnitLog; do not overwrite completed durations with a device-calculated value.
 
 ## Valid Direction Flow
 
@@ -101,6 +104,7 @@ The backend is the authority. The mobile UI may disable an obviously invalid act
 - Confirm `IN → IN` and `OUT → OUT` receive `422 INVALID_TRANSITION`.
 - Confirm retrying a successful request with its original idempotency key returns the original cycle ID.
 - Confirm the client does not include `cycleId` or departure fields in the POST request body.
+- Confirm the previous OUT duration becomes final when a returning IN is recorded, and the previous IN duration becomes final when the next OUT is recorded.
 
 ## References
 

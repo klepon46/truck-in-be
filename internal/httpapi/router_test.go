@@ -269,6 +269,17 @@ func TestRouterServesGeneratedSwaggerDefinition(t *testing.T) {
 	if !bytes.Contains(response.Body.Bytes(), []byte(`"cycleId"`)) {
 		t.Fatal("Swagger movement response does not document cycleId")
 	}
+	transactionDefinition, ok := definition["definitions"].(map[string]any)["operations.Transaction"].(map[string]any)
+	if !ok {
+		t.Fatal("Swagger does not define operations.Transaction")
+	}
+	transactionProperties := transactionDefinition["properties"].(map[string]any)
+	if _, ok := transactionProperties["durationSeconds"]; !ok {
+		t.Fatal("Swagger transaction response does not document durationSeconds")
+	}
+	if _, ok := transactionProperties["statusCompletedAt"]; !ok {
+		t.Fatal("Swagger transaction response does not document statusCompletedAt")
+	}
 }
 
 func TestRouterRedirectsLegacySwaggerRoute(t *testing.T) {

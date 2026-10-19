@@ -1101,6 +1101,9 @@ const docTemplate = `{
                     "type": "string",
                     "x-nullable": "true"
                 },
+                "durationSeconds": {
+                    "type": "integer"
+                },
                 "inCategory": {
                     "type": "string",
                     "x-nullable": "true"
@@ -1123,6 +1126,10 @@ const docTemplate = `{
                     "x-nullable": "true"
                 },
                 "sppNumber": {
+                    "type": "string",
+                    "x-nullable": "true"
+                },
+                "statusCompletedAt": {
                     "type": "string",
                     "x-nullable": "true"
                 },
