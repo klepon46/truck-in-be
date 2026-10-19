@@ -291,6 +291,33 @@ WHERE transaction_id = $1 AND direction = 'OUT'`)).
 	}
 }
 
+func TestLookupWorkshopReturnsValidatedUnitDocument(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New() error = %v", err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(regexp.QuoteMeta(`
+SELECT lambung_unit_id, no_lambung, no_polisi
+FROM unit_snapshot
+WHERE no_lambung = $1 AND is_active = TRUE`)).
+		WithArgs("SAMT119").
+		WillReturnRows(sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi"}).
+			AddRow(int64(7), "SAMT119", "DA 1234 AB"))
+
+	result, err := NewService(sqlx.NewDb(db, "sqlmock"), nil, testDocuments{}).LookupWorkshop(context.Background(), "WO-001")
+	if err != nil {
+		t.Fatalf("LookupWorkshop() error = %v", err)
+	}
+	if result.NoLambung != "SAMT119" || result.NoPolisi != "DA 1234 AB" || result.DriverName != "Driver" || result.WorkOrderNumber != "WO-001" {
+		t.Fatalf("LookupWorkshop() = %#v", result)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 type testDocuments struct{}
 
 func (testDocuments) Workshop(context.Context, string) (Document, error) {

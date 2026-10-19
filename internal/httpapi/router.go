@@ -28,6 +28,8 @@ type Dependencies struct {
 	ActorNameClaim     string
 	CORSAllowedOrigins []string
 	Drivers            DriverSearcher
+	Documents          DocumentLookup
+	UnitPicker         UnitPicker
 }
 
 func NewRouter(dependencies Dependencies) *gin.Engine {
@@ -45,6 +47,9 @@ func NewRouter(dependencies Dependencies) *gin.Engine {
 	api.Use(auth.Authenticate(dependencies.JWTSecret))
 	api.POST("/movements", auth.RequirePermission(dependencies.PermissionClaim, appPermission), movementHandler(dependencies))
 	api.GET("/drivers", auth.RequirePermission(dependencies.PermissionClaim, appPermission), driversHandler(dependencies.Drivers))
+	api.GET("/movement-documents/work-orders", auth.RequirePermission(dependencies.PermissionClaim, appPermission), workshopLookupHandler(dependencies.Documents))
+	api.GET("/movement-documents/spp", auth.RequirePermission(dependencies.PermissionClaim, appPermission), sppLookupHandler(dependencies.Documents))
+	api.GET("/unit-picker", auth.RequirePermission(dependencies.PermissionClaim, appPermission), unitPickerHandler(dependencies.UnitPicker))
 
 	operationsAPI := api.Group("/")
 	operationsAPI.Use(auth.RequirePermission(dependencies.PermissionClaim, webPermission))

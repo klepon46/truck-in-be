@@ -43,6 +43,15 @@ type Document struct {
 	CustomerName string
 }
 
+type LookupDocument struct {
+	NoLambung       string `json:"noLambung"`
+	NoPolisi        string `json:"noPolisi"`
+	DriverName      string `json:"driverName"`
+	WorkOrderNumber string `json:"workOrderNumber,omitempty"`
+	SPPNumber       string `json:"sppNumber,omitempty"`
+	CustomerName    string `json:"customerName,omitempty"`
+}
+
 type Transaction struct {
 	ID                       int64     `db:"transaction_id" json:"transactionId"`
 	CycleID                  *int64    `db:"cycle_id" json:"cycleId" extensions:"x-nullable=true"`
@@ -76,6 +85,57 @@ type Service struct {
 
 func NewService(db *sqlx.DB, refresher UnitRefresher, documents Documents) *Service {
 	return &Service{db: db, refresher: refresher, documents: documents}
+}
+
+func (s *Service) LookupWorkshop(ctx context.Context, number string) (LookupDocument, error) {
+	if s.documents == nil || strings.TrimSpace(number) == "" {
+		return LookupDocument{}, ErrInvalidInput
+	}
+	document, err := s.documents.Workshop(ctx, strings.TrimSpace(number))
+	if err != nil {
+		return LookupDocument{}, errors.Join(ErrExternalDocument, err)
+	}
+	return s.lookupDocument(ctx, document, LookupDocument{WorkOrderNumber: strings.TrimSpace(number)})
+}
+
+func (s *Service) LookupSPP(ctx context.Context, number string) (LookupDocument, error) {
+	if s.documents == nil || strings.TrimSpace(number) == "" {
+		return LookupDocument{}, ErrInvalidInput
+	}
+	document, err := s.documents.SPP(ctx, strings.TrimSpace(number))
+	if err != nil {
+		return LookupDocument{}, errors.Join(ErrExternalDocument, err)
+	}
+	return s.lookupDocument(ctx, document, LookupDocument{SPPNumber: strings.TrimSpace(number), CustomerName: document.CustomerName})
+}
+
+func (s *Service) lookupDocument(ctx context.Context, document Document, result LookupDocument) (LookupDocument, error) {
+	if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" {
+		return LookupDocument{}, ErrExternalDocument
+	}
+	if s.refresher != nil {
+		if err := s.refresher.EnsureKnown(ctx, document.NoLambung); err != nil {
+			return LookupDocument{}, err
+		}
+	}
+	var unit snapshot
+	err := s.db.GetContext(ctx, &unit, `
+SELECT lambung_unit_id, no_lambung, no_polisi
+FROM unit_snapshot
+WHERE no_lambung = $1 AND is_active = TRUE`, document.NoLambung)
+	if errors.Is(err, sql.ErrNoRows) {
+		return LookupDocument{}, ErrUnitNotFound
+	}
+	if err != nil {
+		return LookupDocument{}, err
+	}
+	if err := validateDocumentUnit(document, unit); err != nil {
+		return LookupDocument{}, err
+	}
+	result.NoLambung = unit.NoLambung
+	result.NoPolisi = unit.NoPolisi
+	result.DriverName = document.DriverName
+	return result, nil
 }
 
 func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input, actorID, actorName string) (Transaction, error) {
@@ -266,10 +326,10 @@ func validateDocumentUnit(document Document, unit snapshot) error {
 }
 
 type snapshot struct {
-	ID                   int64
-	NoLambung            string
-	NoPolisi             string
-	CurrentTransactionID *int64
+	ID                   int64  `db:"lambung_unit_id"`
+	NoLambung            string `db:"no_lambung"`
+	NoPolisi             string `db:"no_polisi"`
+	CurrentTransactionID *int64 `db:"current_transaction_id"`
 	Status               Status
 }
 

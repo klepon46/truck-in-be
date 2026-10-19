@@ -66,7 +66,7 @@ func main() {
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%d", applicationConfig.ServerPort),
 		Handler: httpapi.NewRouter(httpapi.Dependencies{
-			Database: db, Movement: movementService, Operations: operationsService, Drivers: integrationClient,
+			Database: db, Movement: movementService, Operations: operationsService, Drivers: integrationClient, Documents: movementService, UnitPicker: operationsService,
 			JWTSecret: []byte(applicationConfig.AuthJWTHS256Secret), PermissionClaim: applicationConfig.AuthPermissionsClaim,
 			ActorIDClaim: applicationConfig.AuthActorIDClaim, ActorNameClaim: applicationConfig.AuthActorNameClaim,
 			CORSAllowedOrigins: applicationConfig.CORSAllowedOrigins,

@@ -17,6 +17,7 @@ import (
 
 	"truckin-be/internal/integration"
 	"truckin-be/internal/movement"
+	"truckin-be/internal/operations"
 )
 
 type testPinger struct {
@@ -32,6 +33,35 @@ type testDriverSearcher struct {
 	err     error
 	query   string
 	calls   int
+}
+
+type testDocumentLookup struct {
+	workOrder movement.LookupDocument
+	spp       movement.LookupDocument
+	err       error
+}
+
+type testUnitPicker struct {
+	units []operations.Unit
+	err   error
+}
+
+func (p testUnitPicker) ListUnits(_ context.Context, filter operations.UnitFilter) ([]operations.Unit, operations.Page, error) {
+	return p.units, filter.Page, p.err
+}
+
+func (l testDocumentLookup) LookupWorkshop(_ context.Context, number string) (movement.LookupDocument, error) {
+	if number != "WO-001" {
+		return movement.LookupDocument{}, errors.New("unexpected work order")
+	}
+	return l.workOrder, l.err
+}
+
+func (l testDocumentLookup) LookupSPP(_ context.Context, number string) (movement.LookupDocument, error) {
+	if number != "SPP-001" {
+		return movement.LookupDocument{}, errors.New("unexpected SPP")
+	}
+	return l.spp, l.err
 }
 
 func (s *testDriverSearcher) ActiveDrivers(_ context.Context, query string) ([]integration.ActiveDriver, error) {
@@ -140,6 +170,70 @@ func TestRouterListsActiveDriversForAppUser(t *testing.T) {
 		t.Fatalf("unmarshal response: %v", err)
 	}
 	if len(body.Data) != 1 || body.Data[0] != (integration.ActiveDriver{ID: 42, DriverName: "Driver Name"}) {
+		t.Fatalf("response data = %#v", body.Data)
+	}
+}
+
+func TestRouterLooksUpWorkshopDocumentForAppUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := []byte("test-secret")
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/movement-documents/work-orders?number=WO-001", nil)
+	request.Header.Set("Authorization", "Bearer "+testToken(t, secret, appPermission))
+	response := httptest.NewRecorder()
+
+	NewRouter(Dependencies{
+		Database:        testPinger{},
+		Documents:       testDocumentLookup{workOrder: movement.LookupDocument{NoLambung: "A122", NoPolisi: "DA 122 A", DriverName: "Driver", WorkOrderNumber: "WO-001"}},
+		JWTSecret:       secret,
+		PermissionClaim: "permissions",
+	}).ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", response.Code, http.StatusOK, response.Body.String())
+	}
+	var body struct {
+		Data struct {
+			NoLambung       string `json:"noLambung"`
+			NoPolisi        string `json:"noPolisi"`
+			DriverName      string `json:"driverName"`
+			WorkOrderNumber string `json:"workOrderNumber"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if body.Data.NoLambung != "A122" || body.Data.NoPolisi != "DA 122 A" || body.Data.DriverName != "Driver" || body.Data.WorkOrderNumber != "WO-001" {
+		t.Fatalf("response data = %#v", body.Data)
+	}
+}
+
+func TestRouterListsUnitsForAppPicker(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := []byte("test-secret")
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/unit-picker?query=A122", nil)
+	request.Header.Set("Authorization", "Bearer "+testToken(t, secret, appPermission))
+	response := httptest.NewRecorder()
+
+	NewRouter(Dependencies{
+		Database:        testPinger{},
+		UnitPicker:      testUnitPicker{units: []operations.Unit{{ID: 7, NoLambung: "A122", NoPolisi: "DA 122 A", IsActive: true}}},
+		JWTSecret:       secret,
+		PermissionClaim: "permissions",
+	}).ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", response.Code, http.StatusOK, response.Body.String())
+	}
+	var body struct {
+		Data []struct {
+			NoLambung string `json:"noLambung"`
+			NoPolisi  string `json:"noPolisi"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if len(body.Data) != 1 || body.Data[0].NoLambung != "A122" || body.Data[0].NoPolisi != "DA 122 A" {
 		t.Fatalf("response data = %#v", body.Data)
 	}
 }
