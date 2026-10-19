@@ -6,7 +6,7 @@ Use this guide for the satpam movement flow. The app no longer scans a unit QR. 
 
 1. Satpam chooses `IN` or `OUT`.
 2. Satpam chooses **WO**, **SPP**, or **OTHER**.
-3. For WO/SPP, scan the document QR and call the matching UnitLog lookup endpoint. For OTHER, choose a unit and active driver from UnitLog pickers, then enter a note.
+3. WO/SPP QR codes contain the raw document number directly (not a URL). After scanning, put that complete value into the document-number field; the satpam then presses **Cek WO** or **Cek SPP** to call the matching UnitLog lookup endpoint. For OTHER, choose a unit and active driver from UnitLog pickers, then enter a note.
 4. Display the populated unit code, police number, and driver. Satpam chooses the IN category or OUT destination as applicable, then confirms.
 5. Submit `POST /api/v1/movements` with a new idempotency key. UnitLog revalidates all selected/scanned data before changing status.
 
@@ -69,6 +69,15 @@ Use the selected unit's `noLambung` and display `noPolisi`. Use the selected dri
 
 For `FILLING_SHED_KUIN` and `CUSTOMER`, submit `sppNumber` instead. Existing status rules still determine whether CUSTOMER is allowed.
 
+### Filling Shed To Customer Routes
+
+UnitLog records only crossings of the pool boundary; it does not record movements between external destinations.
+
+- **Direct route:** `Pool → Filling Shed → Customer → Pool` records `OUT FILLING_SHED_KUIN` when leaving the pool, then records the returning `IN` with the same SPP when the unit returns. Do not create a synthetic IN/OUT transaction for Filling Shed → Customer.
+- **Return as Gantungan:** `Pool → Filling Shed → Pool → Customer → Pool` records `OUT FILLING_SHED_KUIN`, then `IN WAITING_FOR_DELIVERY_TO_CUSTOMER` with the same SPP. The unit can then submit `OUT CUSTOMER` with that same SPP; when it returns, submit `IN` with the Customer departure's same SPP.
+
+`OUT CUSTOMER` is therefore only for a departure **from the pool** while the unit status is `IN WAITING_FOR_DELIVERY_TO_CUSTOMER`. The app may present the destination, but UnitLog remains authoritative and can reject an ineligible submission with `422 INVALID_TRANSITION` or `422 DOCUMENT_VALIDATION_FAILED`.
+
 ### Returning document-backed IN
 
 ```json
@@ -108,7 +117,7 @@ For OUT, replace `inCategory` with `outDestination: "OTHER"`. OTHER must use bot
 
 1. Never call Workshop, SAOS, Unit Lambung, or Driver directly and never store service tokens.
 2. Lookup/picker values are display state only; submit the minimal source fields shown above.
-3. Reuse an `Idempotency-Key` only to retry the identical POST body.
+3. Persist the original POST payload and its `Idempotency-Key` before attempting submission. Reuse both only to retry that identical movement; never rebuild or migrate an older pending payload using newer app rules.
 4. A successful IN/OUT stores the confirmed unit, police, driver, document/OTHER note, actor, cycle, and duration audit data.
 
 ## References

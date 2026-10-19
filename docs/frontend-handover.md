@@ -154,13 +154,13 @@ Idempotency-Key: <uuid>
 Content-Type: application/json
 ```
 
-Generate one UUID when the satpam confirms a scan. Reuse the same UUID only when retrying that exact payload after a timeout or temporary network failure. Generate a new UUID for a new movement attempt.
+Generate one UUID when the satpam confirms a scan. Persist the original payload together with that UUID before sending it. Reuse both only when retrying that exact payload after a timeout or temporary network failure; do not reconstruct a pending payload under a newer app rule. Generate a new UUID for a new movement attempt.
 
 Submitting the same UUID with different data returns `409 IDEMPOTENCY_CONFLICT`. Do not automatically retry a `4xx` response other than an intentional retry of the unchanged request after an ambiguous network failure.
 
 ### Scan And Picker Handling
 
-Do not scan a unit QR. For WO/SPP movements, scan the document QR and use the returned UnitLog document lookup to populate `noLambung`, police number, and driver. For OTHER, select the unit from `GET /api/v1/unit-picker` and the driver from `GET /api/v1/drivers`; enter only the note manually. See [mobile-document-movement-handover.md](mobile-document-movement-handover.md) for the exact lookup and submit contract.
+Do not scan a unit QR. WO/SPP QR codes contain the raw document number directly, not a URL: put the complete scanned value into the form and call the matching document lookup when the satpam presses **Cek WO** or **Cek SPP**. Use the returned data to populate `noLambung`, police number, and driver. For OTHER, select the unit from `GET /api/v1/unit-picker` and the driver from `GET /api/v1/drivers`; enter only the note manually. See [mobile-document-movement-handover.md](mobile-document-movement-handover.md) for the exact lookup and submit contract.
 
 ### Important: Submit Only One Valid Payload Variant
 
@@ -223,6 +223,8 @@ Available values:
 ```
 
 This requires the unit's current status to be `IN - WAITING_FOR_DELIVERY_TO_CUSTOMER`. The SPP must match the unit's active SPP and the SAOS customer must match the active SPP customer. Do not send `workOrderNumber`, `driverId`, or `driverName`.
+
+UnitLog records only pool-boundary crossings. For a direct `Pool → Filling Shed → Customer → Pool` route, submit only `OUT - Filling Shed` on departure and the matching SPP-backed `IN` when the unit returns; do not submit a fictitious Filling Shed → Customer movement. `OUT - Customer` is used only after the unit has returned to the pool as `IN - WAITING_FOR_DELIVERY_TO_CUSTOMER` with the same active SPP.
 
 #### OUT - Other
 
