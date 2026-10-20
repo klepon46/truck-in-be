@@ -131,7 +131,7 @@ func TestWorkshopMapsDocumentVehicleAndPoliceDetails(t *testing.T) {
 
 func TestSPPMapsDocumentVehiclePoliceAndCustomerDetails(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/api/v1/loading-orders" || request.URL.Query().Get("transNo") != "SPP-001" {
+		if request.URL.Path != "/api/v2/loading-orders" || request.URL.Query().Get("search") != "SPP-001" {
 			t.Fatalf("request = %s", request.URL.String())
 		}
 		_, _ = writer.Write([]byte(`{

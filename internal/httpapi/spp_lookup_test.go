@@ -62,7 +62,7 @@ func TestSPPLookupIntegration(t *testing.T) {
 			slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
 			defer slog.SetDefault(originalLogger)
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Query().Get("transNo") != "SPG-BJM-2612481" {
+				if r.URL.Query().Get("search") != "SPG-BJM-2612481" {
 					t.Error("SAOS must receive the complete trimmed number")
 				}
 				if test.upstreamStatus != 0 {

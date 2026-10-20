@@ -29,7 +29,7 @@ func TestSPPUsesConfirmedSAOSContract(t *testing.T) {
 		t.Run(number, func(t *testing.T) {
 			wantNumber := strings.TrimSpace(number)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != http.MethodGet || r.URL.Path != "/api/v1/loading-orders" || r.URL.Query().Get("transNo") != wantNumber {
+				if r.Method != http.MethodGet || r.URL.Path != "/api/v2/loading-orders" || r.URL.Query().Get("search") != wantNumber {
 					t.Errorf("unexpected request method, path, or complete document number")
 				}
 				if r.Header.Get("Accept") != "application/json" {
