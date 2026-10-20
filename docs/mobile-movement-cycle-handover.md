@@ -96,6 +96,8 @@ OUT transaction #123, cycle #50
 
 The backend is the authority. The mobile UI may disable an obviously invalid action using the unit's latest status, but it must still handle a `422 INVALID_TRANSITION` response because another scan may have changed the state first.
 
+For SPP OUT selection, use the lookup's `allowedOutDestinations` rather than inferring active SPP from historical transactions or display fields. BE resolves the current Gantungan IN's correlated departure cycle; legacy data with no trusted cycle returns an empty OUT array. This does not block returning IN. See [the SPP eligibility handover](mobile-spp-out-eligibility-handover.md).
+
 ## Test Checklist
 
 - Confirm an OUT returns a non-null `cycleId` equal to its `departureTransactionId` relationship.

@@ -2,7 +2,7 @@
 
 ## Confirmed Contract
 
-Android calls only `GET /api/v1/movement-documents/spp?number=<URL-encoded-full-number>` on UnitLog. UnitLog calls `GET /api/v1/loading-orders?transNo=<URL-encoded-full-number>` on the configured `saos_api_base_url`, with `Accept: application/json` and the configured `saos_service_token` as a Bearer token. Never forward the Android JWT or copy credentials into source code or logs.
+Android calls only `GET /api/v1/movement-documents/spp?number=<URL-encoded-full-number>` on UnitLog. UnitLog calls the current SAOS V2 contract, `GET /api/v2/loading-orders?search=<URL-encoded-full-number>`, on the configured `saos_api_base_url`, with `Accept: application/json` and the configured `saos_service_token` as a Bearer token. Never forward the Android JWT or copy credentials into source code or logs.
 
 The adapter trims the full number without splitting `/`, decodes the SAOS `data` array, and selects the exact matching `trans_no`. It maps `unit_name`, `unit_police_no`, `driver_name`, `customer_code`, and `customer_name`. A matching document must have a nonblank unit, police number, and trimmed driver name. Unrelated records and extra fields do not decide validity.
 
@@ -10,6 +10,7 @@ The adapter trims the full number without splitting `/`, decodes the SAOS `data`
 
 | HTTP / code | Meaning | Next check |
 | --- | --- | --- |
+| 200 with `allowedOutDestinations: []` | Document is valid but no new SPP OUT is currently eligible | Keep IN lookup usable; check current status, cycle correlation, stable customer code, and lifecycle. Missing trusted legacy cycle data is not permission to infer an older SPP. |
 | 422 `DOCUMENT_VALIDATION_FAILED` | No matching document, unsuccessful document response, or missing required document fields | Check the complete scanned number and the SAOS document data. |
 | 404 `UNIT_NOT_FOUND` | Document unit does not resolve to an active Unit Lambung snapshot | Check Unit Lambung master data and the latest successful sync. |
 | 422 `DOCUMENT_VALIDATION_FAILED`, with unit/police mismatch message | Document unit/police disagrees with the active snapshot | Compare SAOS and Unit Lambung; do not bypass validation or infer the unit from its plate. |
@@ -37,4 +38,4 @@ Regression tests cover the supplied SAOS array fixture, exact matching after an 
 
 The supplied fixture is accepted in automated tests when paired with the matching active snapshot. This does **not** verify a deployed lookup: the deployment's configuration, SAOS access, and snapshot must still be checked. No live configuration or snapshot data is changed by this fix.
 
-The success response shape, app permission, transition rules, active-SPP/customer-code matching, returning-IN document rules, cycle correlation, durations, and idempotency behavior are unchanged.
+The SPP success response adds the non-null `allowedOutDestinations` array; active-SPP/customer-code validation is now tied to the current IN's trusted departure cycle. App permission, movement request payloads, coordinates, returning-IN rules, durations, and idempotent replay behavior are unchanged. See [the APP eligibility handover](mobile-spp-out-eligibility-handover.md).

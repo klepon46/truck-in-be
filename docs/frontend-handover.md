@@ -387,6 +387,8 @@ Current implementation limitation: each CSV export fetches at most the first 100
 
 UnitLog provides WO/SPP lookup routes to populate the confirmation form. These calls are read-only convenience lookups, not a reservation or approval: the movement submit still revalidates the document and current transition state.
 
+Successful SPP lookup now always includes `allowedOutDestinations`, an array containing only `CUSTOMER`, `FILLING_SHED_KUIN`, or no entries. For a new SPP OUT, show only returned destinations and clear a previous selection if a new lookup no longer permits it. A missing field means eligibility is unknown, not that both destinations are allowed. `[]` must not block a valid returning-IN lookup or the unchanged retry of an already-sent request. Deploy BE before the mobile filtering release; see [the SPP eligibility APP Agent handover](mobile-spp-out-eligibility-handover.md).
+
 SPP upstream authentication/service, connection, and malformed-response failures return `500 INTERNAL_ERROR`, not `422 DOCUMENT_VALIDATION_FAILED`. A genuine document or unit/police mismatch still returns 422; a document unit that cannot be found returns `404 UNIT_NOT_FOUND`. Display the safe server validation message, but base client behavior on the status/code. See [SPP lookup troubleshooting](spp-lookup-troubleshooting.md).
 
 ## Screen Delivery Checklist

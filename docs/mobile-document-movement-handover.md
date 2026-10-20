@@ -49,12 +49,15 @@ An SPP lookup returns `sppNumber` instead of `workOrderNumber`, plus the SAOS `c
     "driverName": "Driver Name",
     "sppNumber": "SPG-BJM-2612481",
     "customerId": "C400",
-    "customerName": "Customer Name"
+    "customerName": "Customer Name",
+    "allowedOutDestinations": ["FILLING_SHED_KUIN"]
   }
 }
 ```
 
 UnitLog reads SAOS `data` as an array and selects the exact matching `trans_no`. It trims the full requested number and driver name; `customerId` comes from `customer_code`. The unit code and police number must match an active Unit Lambung snapshot. Extra SAOS fields such as capacity, quantity, and `is_marked` do not affect this lookup.
+
+For a **new SPP OUT**, show only `allowedOutDestinations` returned by BE. This field is always an array, including `[]` for a valid document with no eligible OUT. A missing field means eligibility is unknown, not that both destinations are allowed. Clear an old destination if it is not present after a new lookup. The array does not restrict IN or authorize changes to a pending retry; see [the SPP eligibility APP handover](mobile-spp-out-eligibility-handover.md).
 
 ## OTHER Pickers
 
@@ -92,7 +95,7 @@ UnitLog records only crossings of the pool boundary; it does not record movement
 - **Direct route:** `Pool → Filling Shed → Customer → Pool` records `OUT FILLING_SHED_KUIN` when leaving the pool, then records the returning `IN` with the same SPP when the unit returns. Do not create a synthetic IN/OUT transaction for Filling Shed → Customer.
 - **Return as Gantungan:** `Pool → Filling Shed → Pool → Customer → Pool` records `OUT FILLING_SHED_KUIN`, then `IN WAITING_FOR_DELIVERY_TO_CUSTOMER` with the same SPP. The unit can then submit `OUT CUSTOMER` with that same SPP; when it returns, submit `IN` with the Customer departure's same SPP.
 
-`OUT CUSTOMER` is therefore only for a departure **from the pool** while the unit status is `IN WAITING_FOR_DELIVERY_TO_CUSTOMER`. The app may present the destination, but UnitLog remains authoritative and can reject an ineligible submission with `422 INVALID_TRANSITION` or `422 DOCUMENT_VALIDATION_FAILED`.
+`OUT CUSTOMER` is therefore only for a departure **from the pool** while the unit status is `IN WAITING_FOR_DELIVERY_TO_CUSTOMER`, with the same uncompleted SPP and stable customer code from that current IN's correlated departure cycle. Present it only when it is returned by `allowedOutDestinations`; UnitLog still revalidates submit and may reject stale eligibility with `422 INVALID_TRANSITION`, `422 DOCUMENT_VALIDATION_FAILED`, or `409 SPP_USED`.
 
 ### Returning document-backed IN
 
@@ -144,4 +147,5 @@ For a unit/police mismatch, the validation message asks operations to check mast
 - [Frontend handover](frontend-handover.md)
 - [Movement cycle handover](mobile-movement-cycle-handover.md)
 - [Optional coordinates APP handover](mobile-movement-coordinates-handover.md)
+- [SPP OUT eligibility APP handover](mobile-spp-out-eligibility-handover.md)
 - Generated API definition: `http://172.16.17.17:8105/swagger-ui/index.html`

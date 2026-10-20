@@ -61,19 +61,19 @@
 ## Task 12: Cycle-Correlated SPP State And Domain Policy
 
 - [x] Read current status, trusted departure SPP/customer, prior Filling Shed use, and SPP completion from a consistent database snapshot.
-- [x] Test Customer/Fill eligibility and legacy fail-closed cases; preserve database errors (13 isolated PostgreSQL scenarios passed).
+- [x] Test Customer/Fill eligibility and legacy fail-closed cases; preserve database errors (15 isolated PostgreSQL scenarios passed, including conflicting arrival SPP and trusted legacy cycles).
 - Verify: focused domain tests and isolated PostgreSQL fixtures; no live movements.
 - Dependencies: approved SPP eligibility contract in `SPEC.md`. Scope: a focused domain file and tests.
 
 ## Task 13: SPP Lookup Array And Atomic Submit Revalidation
 
-- [ ] Always return a non-null eligibility array for valid SPP lookups; preserve returning IN and the WO contract.
-- [ ] Use the same policy on submit after replay checks and unit locking; reject stale eligibility without side effects.
+- [x] Always return a non-null eligibility array for valid SPP lookups; preserve returning IN and the WO contract.
+- [x] Use the same policy on submit after replay checks and unit locking; reject stale eligibility without side effects.
 - Verify: movement/HTTP/authorization/coordinate/replay tests.
 - Dependencies: Task 12. Scope: movement service, lookup handler/interface, and relevant regression tests.
 
 ## Task 14: SPP Eligibility APP Handover And PRD
 
-- [ ] Document filtering, missing versus empty arrays, selection clearing, IN behavior, legacy correlation, and BE-first deployment in APP handovers and PRD.
-- [ ] Regenerate Swagger; complete Go tests/vet/build, Docker test image, PostgreSQL query checks, and review.
+- [x] Document filtering, missing versus empty arrays, selection clearing, IN behavior, legacy correlation, and BE-first deployment in APP handovers and PRD (Draf v1.14 / Confluence version 20).
+- [x] Regenerate Swagger; complete Go tests/vet/build, Docker test image, PostgreSQL query checks, and review.
 - Dependencies: Task 13. Scope: Swagger, handovers, PRD, and verification.
