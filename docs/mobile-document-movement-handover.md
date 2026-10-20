@@ -70,6 +70,8 @@ Use the selected unit's `noLambung` and display `noPolisi`. Use the selected dri
 
 `noLambung` is populated by the lookup or picker. It is not scanned from a unit QR.
 
+Every IN/OUT payload may also include one optional string, `coordinates: "-3.319437,114.590889"`, in latitude/longitude order. Missing GPS must not block submission. Keep coordinates fixed with the original idempotency key/payload on retries. See [the APP coordinate handover](mobile-movement-coordinates-handover.md) for the complete format, null handling, errors, and deployment order.
+
 ### Document-backed OUT
 
 ```json
@@ -141,4 +143,5 @@ For a unit/police mismatch, the validation message asks operations to check mast
 
 - [Frontend handover](frontend-handover.md)
 - [Movement cycle handover](mobile-movement-cycle-handover.md)
+- [Optional coordinates APP handover](mobile-movement-coordinates-handover.md)
 - Generated API definition: `http://172.16.17.17:8105/swagger-ui/index.html`

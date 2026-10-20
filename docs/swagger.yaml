@@ -31,6 +31,12 @@ definitions:
     type: object
   httpapi.movementRequest:
     properties:
+      coordinates:
+        description: Optional for IN and OUT. Signed decimal latitude,longitude; omitted,
+          null, or blank means unavailable. No geofence is applied.
+        example: -3.319437,114.590889
+        maxLength: 100
+        type: string
       direction:
         allOf:
         - $ref: '#/definitions/movement.Direction'
@@ -126,6 +132,9 @@ definitions:
         type: string
       actorName:
         type: string
+      coordinates:
+        type: string
+        x-nullable: "true"
       customerId:
         type: string
         x-nullable: "true"
@@ -202,6 +211,9 @@ definitions:
     properties:
       actorName:
         type: string
+      coordinates:
+        type: string
+        x-nullable: "true"
       customerName:
         type: string
         x-nullable: "true"

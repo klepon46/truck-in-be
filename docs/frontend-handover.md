@@ -265,6 +265,12 @@ Success returns `201`:
 
 The server owns `occurredAt`, document-derived driver/customer fields, snapshots, and actor audit fields. Render the returned transaction as the source of truth.
 
+### Optional Movement Coordinates
+
+IN and OUT submissions may add one optional string, `coordinates: "-3.319437,114.590889"`, in `latitude,longitude` order. No geofence is applied. Omitted/null/blank values are stored and returned as null; nonblank values must be decimal pairs in latitude `[-90,90]` and longitude `[-180,180]`, with at most 100 characters after whitespace normalization. Movement responses/replays and transaction-history JSON return the stored nullable field; CSV and unit-picker responses are unchanged.
+
+The app must freeze location with the original payload and idempotency key before sending; never acquire/add new coordinates when retrying an old pending request. See [the coordinate APP Agent handover](mobile-movement-coordinates-handover.md) for integration steps, errors, and migration/deployment order.
+
 ### Movement Cycles
 
 Every OUT starts a backend-generated `cycleId`; the next IN for that unit returns the same ID and closes the cycle. OUT and IN keep separate `transactionId` values. The response and transaction history also expose `departureTransactionId`, `departureWorkOrderNumber`, and `departureSppNumber` so a returning IN can show its linked departure document. The first recorded IN for a unit has null cycle and departure fields.

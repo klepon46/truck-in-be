@@ -33,6 +33,8 @@ type movementRequest struct {
 	DriverName string `json:"driverName" example:"Driver Name"`
 	// Required for OTHER movements in either direction; optional for document-backed OUT movements.
 	Note string `json:"note" example:"Operational note"`
+	// Optional for IN and OUT. Signed decimal latitude,longitude; omitted, null, or blank means unavailable. No geofence is applied.
+	Coordinates string `json:"coordinates" example:"-3.319437,114.590889" maxLength:"100"`
 }
 
 // movementHandler records an immutable truck movement.
@@ -81,6 +83,7 @@ func movementHandler(dependencies Dependencies) gin.HandlerFunc {
 			NoLambung: request.NoLambung, Direction: request.Direction, InCategory: request.InCategory,
 			OutDestination: request.OutDestination, WorkOrderNumber: request.WorkOrderNumber,
 			SPPNumber: request.SPPNumber, DriverID: request.DriverID, DriverName: request.DriverName, Note: request.Note,
+			Coordinates: request.Coordinates,
 		}, actorID, actorName)
 		if err != nil {
 			logMovementFailure(movement.Input{

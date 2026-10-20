@@ -425,6 +425,13 @@ func TestRouterServesGeneratedSwaggerDefinition(t *testing.T) {
 	if _, ok := transactionProperties["statusCompletedAt"]; !ok {
 		t.Fatal("Swagger transaction response does not document statusCompletedAt")
 	}
+	for _, name := range []string{"movement.Transaction", "operations.Transaction", "httpapi.movementRequest"} {
+		properties := definition["definitions"].(map[string]any)[name].(map[string]any)["properties"].(map[string]any)
+		coordinates, ok := properties["coordinates"].(map[string]any)
+		if !ok || coordinates["type"] != "string" {
+			t.Fatalf("Swagger %s must document coordinates as a string", name)
+		}
+	}
 }
 
 func TestRouterRedirectsLegacySwaggerRoute(t *testing.T) {

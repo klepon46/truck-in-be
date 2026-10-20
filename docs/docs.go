@@ -1125,6 +1125,12 @@ const docTemplate = `{
                 "noLambung"
             ],
             "properties": {
+                "coordinates": {
+                    "description": "Optional for IN and OUT. Signed decimal latitude,longitude; omitted, null, or blank means unavailable. No geofence is applied.",
+                    "type": "string",
+                    "maxLength": 100,
+                    "example": "-3.319437,114.590889"
+                },
                 "direction": {
                     "description": "Required for all movements. IN requires inCategory and exactly one source: workOrderNumber, sppNumber, or OTHER fields. OUT requires outDestination and its matching fields.",
                     "enum": [
@@ -1246,6 +1252,10 @@ const docTemplate = `{
                 "actorName": {
                     "type": "string"
                 },
+                "coordinates": {
+                    "type": "string",
+                    "x-nullable": "true"
+                },
                 "customerId": {
                     "type": "string",
                     "x-nullable": "true"
@@ -1354,6 +1364,10 @@ const docTemplate = `{
             "properties": {
                 "actorName": {
                     "type": "string"
+                },
+                "coordinates": {
+                    "type": "string",
+                    "x-nullable": "true"
                 },
                 "customerName": {
                     "type": "string",

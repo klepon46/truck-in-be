@@ -47,13 +47,13 @@
 
 ## Task 10: Coordinate Audit Persistence And HTTP Contract
 
-- [ ] Add migration 000005 with immutable nullable coordinates and safe rollback; persist/replay string-or-null values.
-- [ ] Bind the app request and expose coordinates in authorized transaction-history JSON, not unit pickers or CSV.
+- [x] Add migration 000005 with immutable nullable coordinates and safe rollback; persist/replay string-or-null values.
+- [x] Bind the app request and expose coordinates in authorized transaction-history JSON, not unit pickers or CSV.
 - Verify: focused movement/HTTP/operations tests and PostgreSQL migration/immutability checks when available.
 - Dependencies: Task 9. Scope: migration, movement service, HTTP handler, operations history, and matching tests.
 
 ## Task 11: Coordinate APP Handover And PRD
 
-- [ ] Publish a dedicated APP Agent guide covering optional acquisition, format, retries, null handling, errors, and deployment order; update existing handovers and PRD.
-- [ ] Regenerate Swagger and complete `go test ./...`, `go vet ./...`, `go build ./...`, and diff review.
+- [x] Publish a dedicated APP Agent guide covering optional acquisition, format, retries, null handling, errors, and deployment order; update existing handovers and PRD (Draf v1.13 / Confluence version 19).
+- [x] Regenerate Swagger and complete `go test ./...`, `go vet ./...`, `go build ./...`, Docker test image, PostgreSQL migration checks, and diff review.
 - Dependencies: Task 10. Scope: generated API docs, handovers, and Confluence PRD.

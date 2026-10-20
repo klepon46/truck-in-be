@@ -53,7 +53,7 @@ func TestListTransactionsMapsCycleAndDepartureReferences(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`
 SELECT m.transaction_id, m.no_lambung_snapshot, m.no_polisi_snapshot, m.direction, m.in_category,
        m.out_destination, m.driver_name_snapshot, m.work_order_number, m.spp_number,
-       m.customer_name_snapshot, m.note, m.actor_name_snapshot, m.occurred_at,
+       m.customer_name_snapshot, m.note, m.actor_name_snapshot, m.occurred_at, m.coordinates,
        c.cycle_id, c.out_transaction_id AS departure_transaction_id,
        departure.work_order_number AS departure_work_order_number,
        departure.spp_number AS departure_spp_number,
@@ -68,11 +68,11 @@ LEFT JOIN movement_status_durations d ON d.transaction_id = m.transaction_id
 		WillReturnRows(sqlmock.NewRows([]string{
 			"transaction_id", "no_lambung_snapshot", "no_polisi_snapshot", "direction", "in_category",
 			"out_destination", "driver_name_snapshot", "work_order_number", "spp_number",
-			"customer_name_snapshot", "note", "actor_name_snapshot", "occurred_at", "cycle_id",
+			"customer_name_snapshot", "note", "actor_name_snapshot", "occurred_at", "coordinates", "cycle_id",
 			"departure_transaction_id", "departure_work_order_number", "departure_spp_number", "duration_seconds", "status_completed_at",
 		}).AddRow(
 			int64(20), "SAMT223", "DA 1234 AB", "IN", "WAITING_FOR_ASSIGNMENT", nil, nil, nil, nil,
-			nil, nil, "satpam", now, int64(91), int64(19), "WO-001", nil, int64(1800), now.Add(30*time.Minute),
+			nil, nil, "satpam", now, "-3.319437,114.590889", int64(91), int64(19), "WO-001", nil, int64(1800), now.Add(30*time.Minute),
 		))
 
 	transactions, page, err := NewService(sqlx.NewDb(db, "sqlmock")).ListTransactions(context.Background(), TransactionFilter{Page: NormalizePage(1, 25)})
@@ -88,6 +88,9 @@ LEFT JOIN movement_status_durations d ON d.transaction_id = m.transaction_id
 	}
 	if transaction.DurationSeconds != 1800 || transaction.StatusCompletedAt == nil || !transaction.StatusCompletedAt.Equal(now.Add(30*time.Minute)) {
 		t.Fatalf("transaction duration = %d, completedAt = %#v", transaction.DurationSeconds, transaction.StatusCompletedAt)
+	}
+	if transaction.Coordinates == nil || *transaction.Coordinates != "-3.319437,114.590889" {
+		t.Fatal("transaction history did not return the coordinate audit snapshot")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)

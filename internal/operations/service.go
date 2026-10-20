@@ -85,6 +85,7 @@ type Transaction struct {
 	SPPNumber                *string    `db:"spp_number" json:"sppNumber" extensions:"x-nullable=true"`
 	CustomerName             *string    `db:"customer_name_snapshot" json:"customerName" extensions:"x-nullable=true"`
 	Note                     *string    `db:"note" json:"note" extensions:"x-nullable=true"`
+	Coordinates              *string    `db:"coordinates" json:"coordinates" extensions:"x-nullable=true"`
 	ActorName                string     `db:"actor_name_snapshot" json:"actorName"`
 	OccurredAt               time.Time  `db:"occurred_at" json:"occurredAt"`
 	DurationSeconds          int64      `db:"duration_seconds" json:"durationSeconds"`
@@ -155,7 +156,7 @@ func (s *Service) ListTransactions(ctx context.Context, filter TransactionFilter
 	err := s.db.SelectContext(ctx, &transactions, s.db.Rebind(`
 SELECT m.transaction_id, m.no_lambung_snapshot, m.no_polisi_snapshot, m.direction, m.in_category,
        m.out_destination, m.driver_name_snapshot, m.work_order_number, m.spp_number,
-       m.customer_name_snapshot, m.note, m.actor_name_snapshot, m.occurred_at,
+       m.customer_name_snapshot, m.note, m.actor_name_snapshot, m.occurred_at, m.coordinates,
        c.cycle_id, c.out_transaction_id AS departure_transaction_id,
        departure.work_order_number AS departure_work_order_number,
        departure.spp_number AS departure_spp_number,

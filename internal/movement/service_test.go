@@ -16,6 +16,7 @@ var transactionColumns = []string{
 	"direction", "in_category", "out_destination", "driver_id", "driver_name_snapshot",
 	"work_order_number", "spp_number", "customer_id", "customer_name_snapshot", "note", "actor_id",
 	"actor_name_snapshot", "occurred_at",
+	"coordinates",
 }
 
 var transactionCycleColumns = append(append([]string{}, transactionColumns...),
@@ -34,7 +35,7 @@ func TestFindByKeyReturnsStoredTransaction(t *testing.T) {
 SELECT m.transaction_id, m.request_hash, m.lambung_unit_id, m.no_lambung_snapshot,
        m.no_polisi_snapshot, m.direction, m.in_category, m.out_destination, m.driver_id, m.driver_name_snapshot,
        m.work_order_number, m.spp_number, m.customer_id, m.customer_name_snapshot, m.note, m.actor_id,
-       m.actor_name_snapshot, m.occurred_at, c.cycle_id,
+       m.actor_name_snapshot, m.occurred_at, m.coordinates, c.cycle_id,
        c.out_transaction_id AS departure_transaction_id,
        departure.work_order_number AS departure_work_order_number,
        departure.spp_number AS departure_spp_number
@@ -46,7 +47,7 @@ WHERE m.idempotency_key = $1`)).
 		WillReturnRows(sqlmock.NewRows(transactionCycleColumns).AddRow(
 			int64(19), []byte("request-hash"), int64(7), "SAMT119", "DA 1234 AB",
 			"OUT", nil, "BENGKEL_LUAR", nil, "Driver", "WO-FKS/2026/10/0002", nil, nil, nil, nil,
-			"12", "superadmin", now, int64(91), int64(19), "WO-FKS/2026/10/0002", nil,
+			"12", "superadmin", now, "-3.319437,114.590889", int64(91), int64(19), "WO-FKS/2026/10/0002", nil,
 		))
 
 	service := NewService(sqlx.NewDb(db, "sqlmock"), nil, nil)
@@ -54,7 +55,7 @@ WHERE m.idempotency_key = $1`)).
 	if err != nil {
 		t.Fatalf("findByKey() error = %v", err)
 	}
-	if !found || transaction.ID != 19 || transaction.NoLambung != "SAMT119" || transaction.CycleID == nil || *transaction.CycleID != 91 {
+	if !found || transaction.ID != 19 || transaction.NoLambung != "SAMT119" || transaction.CycleID == nil || *transaction.CycleID != 91 || transaction.Coordinates == nil || *transaction.Coordinates != "-3.319437,114.590889" {
 		t.Fatalf("findByKey() = %#v, found=%t", transaction, found)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -82,34 +83,34 @@ INSERT INTO movement_transactions (
     idempotency_key, request_hash, lambung_unit_id, no_lambung_snapshot, no_polisi_snapshot,
     direction, in_category, out_destination, driver_id, driver_name_snapshot,
     work_order_number, spp_number, customer_id, customer_name_snapshot, note,
-    actor_id, actor_name_snapshot
+    actor_id, actor_name_snapshot, coordinates
 ) VALUES (
     $1, $2, $3, $4, $5, $6, NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, 0), NULLIF($10, ''),
-    NULLIF($11, ''), NULLIF($12, ''), NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), $16, $17
+    NULLIF($11, ''), NULLIF($12, ''), NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), $16, $17, NULLIF($18, '')
 ) RETURNING transaction_id, request_hash, lambung_unit_id, no_lambung_snapshot,
     no_polisi_snapshot, direction, in_category, out_destination, driver_id, driver_name_snapshot,
     work_order_number, spp_number, customer_id, customer_name_snapshot, note, actor_id,
-    actor_name_snapshot, occurred_at`)).
+    actor_name_snapshot, occurred_at, coordinates`)).
 		WithArgs(
 			"96942009-f8c4-4dbf-b7e0-6d571765166a", []byte("request-hash"), int64(7), "SAMT119", "DA 1234 AB",
-			DirectionOut, "", OutWorkshop, int64(0), "Driver", "WO-FKS/2026/10/0002", "", "", "", "", "12", "superadmin",
+			DirectionOut, "", OutWorkshop, int64(0), "Driver", "WO-FKS/2026/10/0002", "", "", "", "", "12", "superadmin", "-3.319437,114.590889",
 		).
 		WillReturnRows(sqlmock.NewRows(transactionColumns).AddRow(
 			int64(19), []byte("request-hash"), int64(7), "SAMT119", "DA 1234 AB",
 			"OUT", nil, "BENGKEL_LUAR", nil, "Driver", "WO-FKS/2026/10/0002", nil, nil, nil, nil,
-			"12", "superadmin", now,
+			"12", "superadmin", now, "-3.319437,114.590889",
 		))
 	mock.ExpectRollback()
 
 	transaction, err := insertTransaction(context.Background(), tx, "96942009-f8c4-4dbf-b7e0-6d571765166a", []byte("request-hash"), snapshot{
 		ID: 7, NoLambung: "SAMT119", NoPolisi: "DA 1234 AB",
 	}, Input{
-		Direction: DirectionOut, OutDestination: OutWorkshop, WorkOrderNumber: "WO-FKS/2026/10/0002",
+		Direction: DirectionOut, OutDestination: OutWorkshop, WorkOrderNumber: "WO-FKS/2026/10/0002", Coordinates: "-3.319437,114.590889",
 	}, Document{DriverName: "Driver"}, "12", "superadmin")
 	if err != nil {
 		t.Fatalf("insertTransaction() error = %v", err)
 	}
-	if transaction.ID != 19 || transaction.NoLambung != "SAMT119" {
+	if transaction.ID != 19 || transaction.NoLambung != "SAMT119" || transaction.Coordinates == nil || *transaction.Coordinates != "-3.319437,114.590889" {
 		t.Fatalf("insertTransaction() = %#v", transaction)
 	}
 	if err := tx.Rollback(); err != nil {
@@ -383,22 +384,22 @@ INSERT INTO movement_transactions (
     idempotency_key, request_hash, lambung_unit_id, no_lambung_snapshot, no_polisi_snapshot,
     direction, in_category, out_destination, driver_id, driver_name_snapshot,
     work_order_number, spp_number, customer_id, customer_name_snapshot, note,
-    actor_id, actor_name_snapshot
+    actor_id, actor_name_snapshot, coordinates
 ) VALUES (
     $1, $2, $3, $4, $5, $6, NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, 0), NULLIF($10, ''),
-    NULLIF($11, ''), NULLIF($12, ''), NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), $16, $17
+    NULLIF($11, ''), NULLIF($12, ''), NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), $16, $17, NULLIF($18, '')
 ) RETURNING transaction_id, request_hash, lambung_unit_id, no_lambung_snapshot,
     no_polisi_snapshot, direction, in_category, out_destination, driver_id, driver_name_snapshot,
     work_order_number, spp_number, customer_id, customer_name_snapshot, note, actor_id,
-    actor_name_snapshot, occurred_at`)).
+    actor_name_snapshot, occurred_at, coordinates`)).
 		WithArgs(
 			"96942009-f8c4-4dbf-b7e0-6d571765166a", sqlmock.AnyArg(), int64(7), "SAMT119", "DA 1234 AB",
-			DirectionOut, "", OutWorkshop, int64(0), "Driver", "WO-001", "", "", "", "", "12", "superadmin",
+			DirectionOut, "", OutWorkshop, int64(0), "Driver", "WO-001", "", "", "", "", "12", "superadmin", "",
 		).
 		WillReturnRows(sqlmock.NewRows(transactionColumns).AddRow(
 			int64(19), []byte("request-hash"), int64(7), "SAMT119", "DA 1234 AB",
 			"OUT", nil, "BENGKEL_LUAR", nil, "Driver", "WO-001", nil, nil, nil, nil,
-			"12", "superadmin", now,
+			"12", "superadmin", now, nil,
 		))
 	mock.ExpectQuery(regexp.QuoteMeta(`
 INSERT INTO movement_cycles (lambung_unit_id, out_transaction_id)
@@ -465,22 +466,22 @@ INSERT INTO movement_transactions (
     idempotency_key, request_hash, lambung_unit_id, no_lambung_snapshot, no_polisi_snapshot,
     direction, in_category, out_destination, driver_id, driver_name_snapshot,
     work_order_number, spp_number, customer_id, customer_name_snapshot, note,
-    actor_id, actor_name_snapshot
+    actor_id, actor_name_snapshot, coordinates
 ) VALUES (
     $1, $2, $3, $4, $5, $6, NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, 0), NULLIF($10, ''),
-    NULLIF($11, ''), NULLIF($12, ''), NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), $16, $17
+    NULLIF($11, ''), NULLIF($12, ''), NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), $16, $17, NULLIF($18, '')
 ) RETURNING transaction_id, request_hash, lambung_unit_id, no_lambung_snapshot,
     no_polisi_snapshot, direction, in_category, out_destination, driver_id, driver_name_snapshot,
     work_order_number, spp_number, customer_id, customer_name_snapshot, note, actor_id,
-    actor_name_snapshot, occurred_at`)).
+    actor_name_snapshot, occurred_at, coordinates`)).
 		WithArgs(
 			"96942009-f8c4-4dbf-b7e0-6d571765166a", sqlmock.AnyArg(), int64(7), "SAMT119", "DA 1234 AB",
-			DirectionIn, InWaitingForAssignment, "", int64(0), "Driver", "WO-001", "", "", "", "", "12", "superadmin",
+			DirectionIn, InWaitingForAssignment, "", int64(0), "Driver", "WO-001", "", "", "", "", "12", "superadmin", "-3.319437,114.590889",
 		).
 		WillReturnRows(sqlmock.NewRows(transactionColumns).AddRow(
 			int64(20), []byte("request-hash"), int64(7), "SAMT119", "DA 1234 AB",
 			"IN", InWaitingForAssignment, nil, nil, "Driver", "WO-001", nil, nil, nil, nil,
-			"12", "superadmin", now,
+			"12", "superadmin", now, "-3.319437,114.590889",
 		))
 	mock.ExpectQuery(regexp.QuoteMeta(`
 SELECT c.cycle_id, c.out_transaction_id AS departure_transaction_id,
@@ -514,13 +515,16 @@ WHERE transaction_id = $1`)).
 	mock.ExpectCommit()
 
 	transaction, err := NewService(sqlx.NewDb(db, "sqlmock"), nil, testDocuments{}).Record(context.Background(), "96942009-f8c4-4dbf-b7e0-6d571765166a", Input{
-		NoLambung: "SAMT119", Direction: DirectionIn, InCategory: InWaitingForAssignment, WorkOrderNumber: "WO-001",
+		NoLambung: "SAMT119", Direction: DirectionIn, InCategory: InWaitingForAssignment, WorkOrderNumber: "WO-001", Coordinates: " -3.319437 , 114.590889 ",
 	}, "12", "superadmin")
 	if err != nil {
 		t.Fatalf("Record() error = %v", err)
 	}
 	if transaction.CycleID == nil || *transaction.CycleID != 91 || transaction.DepartureTransactionID == nil || *transaction.DepartureTransactionID != 19 || transaction.DepartureWorkOrderNumber == nil || *transaction.DepartureWorkOrderNumber != "WO-001" {
 		t.Fatalf("Record() = %#v", transaction)
+	}
+	if transaction.Coordinates == nil || *transaction.Coordinates != "-3.319437,114.590889" {
+		t.Fatal("returning IN did not preserve normalized coordinate snapshot")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)

@@ -73,6 +73,7 @@ type Transaction struct {
 	CustomerID               *string   `db:"customer_id" json:"customerId" extensions:"x-nullable=true"`
 	CustomerName             *string   `db:"customer_name_snapshot" json:"customerName" extensions:"x-nullable=true"`
 	Note                     *string   `db:"note" json:"note" extensions:"x-nullable=true"`
+	Coordinates              *string   `db:"coordinates" json:"coordinates" extensions:"x-nullable=true"`
 	ActorID                  string    `db:"actor_id" json:"actorId"`
 	ActorName                string    `db:"actor_name_snapshot" json:"actorName"`
 	OccurredAt               time.Time `db:"occurred_at" json:"occurredAt"`
@@ -402,17 +403,17 @@ INSERT INTO movement_transactions (
     idempotency_key, request_hash, lambung_unit_id, no_lambung_snapshot, no_polisi_snapshot,
     direction, in_category, out_destination, driver_id, driver_name_snapshot,
     work_order_number, spp_number, customer_id, customer_name_snapshot, note,
-    actor_id, actor_name_snapshot
+    actor_id, actor_name_snapshot, coordinates
 ) VALUES (
     $1, $2, $3, $4, $5, $6, NULLIF($7, ''), NULLIF($8, ''), NULLIF($9, 0), NULLIF($10, ''),
-    NULLIF($11, ''), NULLIF($12, ''), NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), $16, $17
+    NULLIF($11, ''), NULLIF($12, ''), NULLIF($13, ''), NULLIF($14, ''), NULLIF($15, ''), $16, $17, NULLIF($18, '')
 ) RETURNING transaction_id, request_hash, lambung_unit_id, no_lambung_snapshot,
     no_polisi_snapshot, direction, in_category, out_destination, driver_id, driver_name_snapshot,
     work_order_number, spp_number, customer_id, customer_name_snapshot, note, actor_id,
-    actor_name_snapshot, occurred_at`,
+    actor_name_snapshot, occurred_at, coordinates`,
 		idempotencyKey, hash, unit.ID, unit.NoLambung, unit.NoPolisi, input.Direction, input.InCategory,
 		input.OutDestination, input.DriverID, document.DriverName, input.WorkOrderNumber, input.SPPNumber,
-		document.CustomerID, document.CustomerName, input.Note, actorID, actorName)
+		document.CustomerID, document.CustomerName, input.Note, actorID, actorName, input.Coordinates)
 	return transaction, err
 }
 
@@ -426,7 +427,7 @@ func (s *Service) findByKey(ctx context.Context, query queryer, idempotencyKey s
 SELECT m.transaction_id, m.request_hash, m.lambung_unit_id, m.no_lambung_snapshot,
        m.no_polisi_snapshot, m.direction, m.in_category, m.out_destination, m.driver_id, m.driver_name_snapshot,
        m.work_order_number, m.spp_number, m.customer_id, m.customer_name_snapshot, m.note, m.actor_id,
-       m.actor_name_snapshot, m.occurred_at, c.cycle_id,
+       m.actor_name_snapshot, m.occurred_at, m.coordinates, c.cycle_id,
        c.out_transaction_id AS departure_transaction_id,
        departure.work_order_number AS departure_work_order_number,
        departure.spp_number AS departure_spp_number

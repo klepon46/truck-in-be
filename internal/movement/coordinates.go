@@ -1,8 +1,8 @@
 package movement
 
 import (
+	"math/big"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -26,7 +26,8 @@ func validCoordinates(value string) bool {
 		return false
 	}
 	parts := strings.SplitN(value, ",", 2)
-	latitude, latitudeError := strconv.ParseFloat(parts[0], 64)
-	longitude, longitudeError := strconv.ParseFloat(parts[1], 64)
-	return latitudeError == nil && longitudeError == nil && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180
+	// Compare exact decimals so rounding cannot admit a value just outside a bound.
+	latitude, latitudeOK := new(big.Rat).SetString(parts[0])
+	longitude, longitudeOK := new(big.Rat).SetString(parts[1])
+	return latitudeOK && longitudeOK && latitude.Abs(latitude).Cmp(big.NewRat(90, 1)) <= 0 && longitude.Abs(longitude).Cmp(big.NewRat(180, 1)) <= 0
 }

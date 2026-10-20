@@ -18,7 +18,7 @@ func TestCoordinatesValidationForAllMovementSources(t *testing.T) {
 		{Direction: DirectionOut, OutDestination: OutCustomer, SPPNumber: "SPP-1"},
 		{Direction: DirectionOut, OutDestination: OutOther, DriverID: 42, DriverName: "Driver", Note: "Departure"},
 	}
-	for _, coordinates := range []string{"", "  ", "-3.319437,114.590889", "  -3.319437 , 114.590889  ", "90,180", "-90,-180", "0,0", "+.5,-.5"} {
+	for _, coordinates := range []string{"", "  ", "-3.319437,114.590889", "  -3.319437 , 114.590889  ", "90,180", "-90,-180", "0,0", "+.5,-.5", "090,0180"} {
 		for _, source := range sources {
 			input := source
 			input.NoLambung = "SAMT119"
@@ -39,6 +39,8 @@ func TestCoordinatesRejectInvalidPairs(t *testing.T) {
 		"-3.3", "-3.3,", ",114.5", "1,2,3", "91,114", "-91,114", "3,181", "3,-181",
 		"latitude,longitude", "NaN,0", "0,Infinity", "-Inf,0", "1e2,0", "1e-3,0", "1 2,3",
 		"-3;114", "0x1,2", ".,2", "1\n2,3", "0." + strings.Repeat("0", 100) + ",0",
+		"90.00000000000000001,0", "0,-180.00000000000000001",
+		"0100,0",
 	} {
 		t.Run(coordinates, func(t *testing.T) {
 			input := Input{NoLambung: "SAMT119", Direction: DirectionOut, OutDestination: OutWorkshop, WorkOrderNumber: "WO-1", Coordinates: coordinates}
