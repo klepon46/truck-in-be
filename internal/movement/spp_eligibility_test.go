@@ -21,6 +21,7 @@ func TestSPPOutEligibilityPolicy(t *testing.T) {
 		{name: "customer display name changes", adjust: func(_ *sppEligibilityState, d *Document) { d.CustomerName = "Renamed Customer" }, want: []string{OutCustomer}},
 		{name: "different active SPP", adjust: func(s *sppEligibilityState, _ *Document) { s.ActiveSPP = pointer("OTHER-SPP") }, want: []string{}},
 		{name: "different customer code", adjust: func(_ *sppEligibilityState, d *Document) { d.CustomerID = "OTHER-CUSTOMER" }, want: []string{}},
+		{name: "missing scanned customer code", adjust: func(_ *sppEligibilityState, d *Document) { d.CustomerID = "" }, want: []string{}},
 		{name: "missing customer code", adjust: func(s *sppEligibilityState, _ *Document) { s.ActiveCustomerID = nil }, want: []string{}},
 		{name: "legacy Gantungan without trusted cycle", adjust: func(s *sppEligibilityState, _ *Document) { s.ActiveSPP = nil }, want: []string{}},
 		{name: "Kosongan unused SPP", adjust: func(s *sppEligibilityState, _ *Document) { s.InCategory = InWaitingForAssignment }, want: []string{OutFillingShed}},
@@ -31,6 +32,12 @@ func TestSPPOutEligibilityPolicy(t *testing.T) {
 			s.Direction = ""
 			s.InCategory = ""
 		}, want: []string{OutFillingShed}},
+		{name: "no history cannot reuse a previously used SPP", adjust: func(s *sppEligibilityState, _ *Document) {
+			s.CurrentTransactionID = nil
+			s.Direction = ""
+			s.InCategory = ""
+			s.FillingShedUsed = true
+		}, want: []string{}},
 		{name: "Filling Shed SPP already used", adjust: func(s *sppEligibilityState, _ *Document) {
 			s.InCategory = InWaitingForAssignment
 			s.FillingShedUsed = true

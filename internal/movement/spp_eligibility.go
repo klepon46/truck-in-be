@@ -54,6 +54,8 @@ LEFT JOIN movement_cycles active_cycle
 LEFT JOIN movement_transactions departure
   ON departure.transaction_id = active_cycle.out_transaction_id AND departure.lambung_unit_id = u.lambung_unit_id
  AND departure.direction = 'OUT' AND departure.out_destination IN ('FILLING_SHED_KUIN', 'CUSTOMER')
+ AND (current_m.spp_number IS NULL OR current_m.spp_number = departure.spp_number)
+ AND current_m.work_order_number IS NULL AND current_m.driver_id IS NULL
 WHERE u.no_lambung = $1 AND u.is_active = TRUE`
 
 func readSPPState(ctx context.Context, query queryer, noLambung, number string) (sppEligibilityState, error) {

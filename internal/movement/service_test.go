@@ -326,13 +326,10 @@ func TestLookupSPPReturnsValidatedCustomerDocument(t *testing.T) {
 	}
 	defer db.Close()
 
-	mock.ExpectQuery(regexp.QuoteMeta(`
-SELECT lambung_unit_id, no_lambung, no_polisi
-FROM unit_snapshot
-WHERE no_lambung = $1 AND is_active = TRUE`)).
-		WithArgs("SAMT119").
-		WillReturnRows(sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi"}).
-			AddRow(int64(7), "SAMT119", "DA 1234 AB"))
+	mock.ExpectQuery(regexp.QuoteMeta(sppEligibilityQuery)).
+		WithArgs("SAMT119", "SPP-001").
+		WillReturnRows(sqlmock.NewRows(sppStateColumns).
+			AddRow(int64(7), "SAMT119", "DA 1234 AB", nil, "", "", nil, nil, false, false))
 
 	result, err := NewService(sqlx.NewDb(db, "sqlmock"), nil, testDocuments{}).LookupSPP(context.Background(), "SPP-001")
 	if err != nil {

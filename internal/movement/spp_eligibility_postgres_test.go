@@ -33,6 +33,7 @@ func TestSPPEligibilityPostgres(t *testing.T) {
 		"no history", "Kosongan", "Service", "Gantungan", "different SPP", "different customer",
 		"legacy Gantungan without cycle", "unrelated old SPP", "OUT after historical Gantungan",
 		"Gantungan returning from Customer", "used Filling Shed SPP", "completed first IN SPP", "completed legacy return",
+		"legacy Gantungan with trusted cycle", "conflicting arrival SPP",
 	} {
 		t.Run(name, func(t *testing.T) {
 			tx, err := db.BeginTxx(context.Background(), nil)
@@ -64,7 +65,7 @@ func TestSPPEligibilityPostgres(t *testing.T) {
 				}
 				currentID = sppFixtureMovement(t, tx, DirectionIn, category, "", "", "")
 				want = []string{OutFillingShed}
-			case "Gantungan", "different SPP", "different customer", "OUT after historical Gantungan", "Gantungan returning from Customer":
+			case "Gantungan", "different SPP", "different customer", "OUT after historical Gantungan", "Gantungan returning from Customer", "legacy Gantungan with trusted cycle", "conflicting arrival SPP":
 				number, customer := "SPP-001", "C400"
 				if name == "different SPP" {
 					number = "OTHER-SPP"
@@ -73,9 +74,16 @@ func TestSPPEligibilityPostgres(t *testing.T) {
 					customer = "OTHER-CUSTOMER"
 				}
 				out := sppFixtureMovement(t, tx, DirectionOut, "", OutFillingShed, number, customer)
-				currentID = sppFixtureMovement(t, tx, DirectionIn, InWaitingForDelivery, "", number, customer)
+				arrivalNumber, arrivalCustomer := number, customer
+				if name == "legacy Gantungan with trusted cycle" {
+					arrivalNumber, arrivalCustomer = "", ""
+				}
+				if name == "conflicting arrival SPP" {
+					arrivalNumber = "OTHER-SPP"
+				}
+				currentID = sppFixtureMovement(t, tx, DirectionIn, InWaitingForDelivery, "", arrivalNumber, arrivalCustomer)
 				sppFixtureCycle(t, tx, out, currentID)
-				if name == "Gantungan" || name == "Gantungan returning from Customer" {
+				if name == "Gantungan" || name == "Gantungan returning from Customer" || name == "legacy Gantungan with trusted cycle" {
 					want = []string{OutCustomer}
 				}
 				if name == "OUT after historical Gantungan" || name == "Gantungan returning from Customer" {

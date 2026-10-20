@@ -59,11 +59,11 @@ func (l testDocumentLookup) LookupWorkshop(_ context.Context, number string) (mo
 	return l.workOrder, l.err
 }
 
-func (l testDocumentLookup) LookupSPP(_ context.Context, number string) (movement.LookupDocument, error) {
+func (l testDocumentLookup) LookupSPP(_ context.Context, number string) (movement.SPPLookupDocument, error) {
 	if number != "SPP-001" {
-		return movement.LookupDocument{}, errors.New("unexpected SPP")
+		return movement.SPPLookupDocument{}, errors.New("unexpected SPP")
 	}
-	return l.spp, l.err
+	return movement.SPPLookupDocument{LookupDocument: l.spp, AllowedOutDestinations: []string{}}, l.err
 }
 
 func (s *testDriverSearcher) ActiveDrivers(_ context.Context, query string) ([]integration.ActiveDriver, error) {
@@ -207,6 +207,9 @@ func TestRouterLooksUpWorkshopDocumentForAppUser(t *testing.T) {
 	if body.Data.NoLambung != "A122" || body.Data.NoPolisi != "DA 122 A" || body.Data.DriverName != "Driver" || body.Data.WorkOrderNumber != "WO-001" {
 		t.Fatalf("response data = %#v", body.Data)
 	}
+	if bytes.Contains(response.Body.Bytes(), []byte("allowedOutDestinations")) {
+		t.Fatal("SPP eligibility must not change the WO lookup contract")
+	}
 }
 
 func TestRouterLooksUpSPPDocumentWithCustomerForAppUser(t *testing.T) {
@@ -238,6 +241,31 @@ func TestRouterLooksUpSPPDocumentWithCustomerForAppUser(t *testing.T) {
 	}
 	if body.Data.SPPNumber != "SPP-001" || body.Data.CustomerID != "CUST-1" || body.Data.CustomerName != "Customer One" {
 		t.Fatalf("response data = %#v", body.Data)
+	}
+	if !bytes.Contains(response.Body.Bytes(), []byte(`"allowedOutDestinations":[]`)) {
+		t.Fatal("empty SPP eligibility must be an explicit array, never null or omitted")
+	}
+}
+
+func TestSPPLookupKeepsAppOnlyPermission(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	secret := []byte("test-secret")
+	for _, test := range []struct {
+		permission string
+		status     int
+	}{
+		{permission: "", status: http.StatusUnauthorized},
+		{permission: webPermission, status: http.StatusForbidden},
+	} {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/movement-documents/spp?number=SPP-001", nil)
+		if test.permission != "" {
+			request.Header.Set("Authorization", "Bearer "+testToken(t, secret, test.permission))
+		}
+		response := httptest.NewRecorder()
+		NewRouter(Dependencies{JWTSecret: secret, PermissionClaim: "permissions"}).ServeHTTP(response, request)
+		if response.Code != test.status {
+			t.Fatalf("status = %d, want %d", response.Code, test.status)
+		}
 	}
 }
 
@@ -430,6 +458,25 @@ func TestRouterServesGeneratedSwaggerDefinition(t *testing.T) {
 		coordinates, ok := properties["coordinates"].(map[string]any)
 		if !ok || coordinates["type"] != "string" {
 			t.Fatalf("Swagger %s must document coordinates as a string", name)
+		}
+	}
+	definitions := definition["definitions"].(map[string]any)
+	sppDefinition, ok := definitions["movement.SPPLookupDocument"].(map[string]any)
+	if !ok {
+		t.Fatal("Swagger must define the SPP-specific lookup response")
+	}
+	allowed := sppDefinition["properties"].(map[string]any)["allowedOutDestinations"].(map[string]any)
+	if allowed["type"] != "array" || allowed["x-nullable"] != false {
+		t.Fatal("SPP destinations must be documented as a non-null array")
+	}
+	required, _ := sppDefinition["required"].([]any)
+	if len(required) != 1 || required[0] != "allowedOutDestinations" {
+		t.Fatal("SPP eligibility array must be required in the response")
+	}
+	for _, name := range []string{"movement.LookupDocument", "httpapi.movementRequest"} {
+		properties := definitions[name].(map[string]any)["properties"].(map[string]any)
+		if _, exists := properties["allowedOutDestinations"]; exists {
+			t.Fatalf("derived SPP eligibility must not alter %s", name)
 		}
 	}
 }

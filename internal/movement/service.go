@@ -55,6 +55,12 @@ type LookupDocument struct {
 	CustomerName    string `json:"customerName,omitempty"`
 }
 
+type SPPLookupDocument struct {
+	LookupDocument
+	// Always present, including [] when this valid SPP cannot be used for OUT. Does not restrict returning IN.
+	AllowedOutDestinations []string `json:"allowedOutDestinations" validate:"required" enums:"CUSTOMER,FILLING_SHED_KUIN" extensions:"!x-nullable"`
+}
+
 type Transaction struct {
 	ID                       int64     `db:"transaction_id" json:"transactionId"`
 	CycleID                  *int64    `db:"cycle_id" json:"cycleId" extensions:"x-nullable=true"`
@@ -102,28 +108,50 @@ func (s *Service) LookupWorkshop(ctx context.Context, number string) (LookupDocu
 	return s.lookupDocument(ctx, document, LookupDocument{WorkOrderNumber: strings.TrimSpace(number)})
 }
 
-func (s *Service) LookupSPP(ctx context.Context, number string) (LookupDocument, error) {
-	if s.documents == nil || strings.TrimSpace(number) == "" {
-		return LookupDocument{}, ErrInvalidInput
+func (s *Service) LookupSPP(ctx context.Context, number string) (SPPLookupDocument, error) {
+	number = strings.TrimSpace(number)
+	if s.documents == nil || number == "" {
+		return SPPLookupDocument{}, ErrInvalidInput
 	}
-	document, err := s.documents.SPP(ctx, strings.TrimSpace(number))
+	document, err := s.documents.SPP(ctx, number)
 	if err != nil {
 		if errors.Is(err, ErrIntegrationUnavailable) {
-			return LookupDocument{}, err
+			return SPPLookupDocument{}, err
 		}
-		return LookupDocument{}, errors.Join(ErrExternalDocument, err)
+		return SPPLookupDocument{}, errors.Join(ErrExternalDocument, err)
 	}
-	return s.lookupDocument(ctx, document, LookupDocument{SPPNumber: strings.TrimSpace(number), CustomerID: document.CustomerID, CustomerName: document.CustomerName})
+	if err := s.prepareDocumentUnit(ctx, document); err != nil {
+		return SPPLookupDocument{}, err
+	}
+	state, err := readSPPState(ctx, s.db, document.NoLambung, number)
+	if err != nil {
+		return SPPLookupDocument{}, err
+	}
+	if err := validateDocumentUnit(document, snapshot{NoLambung: state.NoLambung, NoPolisi: state.NoPolisi}); err != nil {
+		return SPPLookupDocument{}, err
+	}
+	return SPPLookupDocument{
+		LookupDocument: LookupDocument{
+			NoLambung: state.NoLambung, NoPolisi: state.NoPolisi, DriverName: document.DriverName,
+			SPPNumber: number, CustomerID: document.CustomerID, CustomerName: document.CustomerName,
+		},
+		AllowedOutDestinations: allowedSPPOutDestinations(state, number, document),
+	}, nil
+}
+
+func (s *Service) prepareDocumentUnit(ctx context.Context, document Document) error {
+	if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" {
+		return ErrExternalDocument
+	}
+	if s.refresher != nil {
+		return s.refresher.EnsureKnown(ctx, document.NoLambung)
+	}
+	return nil
 }
 
 func (s *Service) lookupDocument(ctx context.Context, document Document, result LookupDocument) (LookupDocument, error) {
-	if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" {
-		return LookupDocument{}, ErrExternalDocument
-	}
-	if s.refresher != nil {
-		if err := s.refresher.EnsureKnown(ctx, document.NoLambung); err != nil {
-			return LookupDocument{}, err
-		}
+	if err := s.prepareDocumentUnit(ctx, document); err != nil {
+		return LookupDocument{}, err
 	}
 	var unit snapshot
 	err := s.db.GetContext(ctx, &unit, `
@@ -199,9 +227,13 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 			return Transaction{}, err
 		}
 	}
-	if input.Direction == DirectionOut && input.OutDestination == OutCustomer {
-		if err := validateActiveSPP(ctx, tx, snapshot.CurrentTransactionID, input.SPPNumber, document); err != nil {
-			return Transaction{}, fmt.Errorf("validate active SPP: %w", err)
+	if input.Direction == DirectionOut && input.SPPNumber != "" {
+		state, err := readSPPState(ctx, tx, snapshot.NoLambung, input.SPPNumber)
+		if err != nil {
+			return Transaction{}, err
+		}
+		if err := validateSPPDeparture(state, input.OutDestination, input.SPPNumber, document); err != nil {
+			return Transaction{}, fmt.Errorf("validate SPP departure: %w", err)
 		}
 	}
 
@@ -367,33 +399,6 @@ FOR UPDATE OF u`, noLambung).Scan(&value.ID, &value.NoLambung, &value.NoPolisi, 
 		value.Status.InCategory = *category
 	}
 	return value, nil
-}
-
-func validateActiveSPP(ctx context.Context, tx *sqlx.Tx, currentTransactionID *int64, sppNumber string, current Document) error {
-	if currentTransactionID == nil {
-		return ErrSPPMismatch
-	}
-	var previous struct {
-		Number     string  `db:"spp_number"`
-		CustomerID *string `db:"customer_id"`
-	}
-	err := tx.GetContext(ctx, &previous, `
-SELECT spp_number, customer_id
-FROM movement_transactions
-WHERE lambung_unit_id = (
-    SELECT lambung_unit_id FROM movement_transactions WHERE transaction_id = $1
-) AND direction = 'OUT' AND spp_number IS NOT NULL AND transaction_id < $1
-ORDER BY transaction_id DESC LIMIT 1`, *currentTransactionID)
-	if err != nil {
-		return ErrSPPMismatch
-	}
-	if previous.Number != sppNumber {
-		return ErrSPPMismatch
-	}
-	if previous.CustomerID == nil || *previous.CustomerID == "" || current.CustomerID == "" || *previous.CustomerID != current.CustomerID {
-		return ErrCustomerMismatch
-	}
-	return nil
 }
 
 func insertTransaction(ctx context.Context, tx *sqlx.Tx, idempotencyKey string, hash []byte, unit snapshot, input Input, document Document, actorID, actorName string) (Transaction, error) {

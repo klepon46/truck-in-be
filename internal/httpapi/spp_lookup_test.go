@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -32,19 +33,33 @@ const sppLookupFixture = `{"success":true,"message":"Success","code":200,"data":
 func TestSPPLookupIntegration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, test := range []struct {
-		name           string
-		upstreamStatus int
-		response       string
-		querySnapshot  bool
-		snapshotPolice string
-		wantStatus     int
-		wantCode       string
-		wantMessage    string
-		wantLog        string
+		name             string
+		upstreamStatus   int
+		response         string
+		querySnapshot    bool
+		snapshotPolice   string
+		wantStatus       int
+		wantCode         string
+		wantMessage      string
+		wantLog          string
+		databaseFailure  bool
+		direction        string
+		category         string
+		activeSPP        any
+		activeCustomer   any
+		used             bool
+		completed        bool
+		wantDestinations []string
 	}{
 		{name: "actual fixture without movement writes", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", wantStatus: 200},
+		{name: "OUT lookup still works for returning IN", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "OUT", used: true, wantStatus: 200, wantDestinations: []string{}},
+		{name: "Gantungan matching active SPP", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForDelivery, activeSPP: "SPG-BJM-2612481", activeCustomer: "C400", used: true, wantStatus: 200, wantDestinations: []string{movement.OutCustomer}},
+		{name: "Gantungan different active SPP", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForDelivery, activeSPP: "OTHER-SPP", activeCustomer: "C400", wantStatus: 200, wantDestinations: []string{}},
+		{name: "Gantungan customer mismatch is not a lookup error", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForDelivery, activeSPP: "SPG-BJM-2612481", activeCustomer: "OTHER-CUSTOMER", wantStatus: 200, wantDestinations: []string{}},
+		{name: "completed SPP is not offered", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForAssignment, completed: true, wantStatus: 200, wantDestinations: []string{}},
 		{name: "unit not found", response: sppLookupFixture, querySnapshot: true, wantStatus: 404, wantCode: "UNIT_NOT_FOUND"},
 		{name: "police mismatch", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 0000 XX", wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED", wantMessage: "document vehicle or police number does not match Unit Lambung; contact operations to check master data", wantLog: "unit_police_mismatch"},
+		{name: "database failure is not empty eligibility", response: sppLookupFixture, querySnapshot: true, databaseFailure: true, wantStatus: 500, wantCode: "INTERNAL_ERROR"},
 		{name: "no exact match", response: strings.ReplaceAll(sppLookupFixture, "SPG-BJM-2612481", "OTHER-SPP"), wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED"},
 		{name: "empty array", response: `{"success":true,"data":[]}`, wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED"},
 		{name: "unsuccessful document", response: `{"success":false,"data":null}`, wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED"},
@@ -77,12 +92,21 @@ func TestSPPLookupIntegration(t *testing.T) {
 			}
 			defer db.Close()
 			if test.querySnapshot {
-				rows := sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi"})
-				if test.snapshotPolice != "" {
-					rows.AddRow(72, "SAMT072", test.snapshotPolice)
+				rows := sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi", "current_transaction_id", "direction", "in_category", "active_spp", "active_customer_id", "filling_shed_used", "spp_completed"})
+				var currentID any
+				if test.direction != "" {
+					currentID = int64(20)
 				}
-				mock.ExpectQuery(regexp.QuoteMeta(`SELECT lambung_unit_id, no_lambung, no_polisi FROM unit_snapshot WHERE no_lambung = $1 AND is_active = TRUE`)).
-					WithArgs("SAMT072").WillReturnRows(rows)
+				if test.snapshotPolice != "" {
+					rows.AddRow(72, "SAMT072", test.snapshotPolice, currentID, test.direction, test.category, test.activeSPP, test.activeCustomer, test.used, test.completed)
+				}
+				expectation := mock.ExpectQuery(regexp.QuoteMeta(`SELECT u.lambung_unit_id, u.no_lambung, u.no_polisi, u.current_transaction_id,`)).
+					WithArgs("SAMT072", "SPG-BJM-2612481")
+				if test.databaseFailure {
+					expectation.WillReturnError(errors.New("test database unavailable"))
+				} else {
+					expectation.WillReturnRows(rows)
+				}
 			}
 			client := integration.NewClient(integration.Config{SAOSBaseURL: upstream.URL, SAOSToken: "secret-saos-service-token", RequestTimeout: time.Second})
 			secret := []byte("test-secret")
@@ -98,7 +122,7 @@ func TestSPPLookupIntegration(t *testing.T) {
 				t.Fatalf("status = %d, want %d: %s", response.Code, test.wantStatus, response.Body.String())
 			}
 			var body struct {
-				Data  movement.LookupDocument `json:"data"`
+				Data  movement.SPPLookupDocument `json:"data"`
 				Error struct {
 					Code    string `json:"code"`
 					Message string `json:"message"`
@@ -109,7 +133,11 @@ func TestSPPLookupIntegration(t *testing.T) {
 			}
 			if test.wantStatus == 200 {
 				want := movement.LookupDocument{NoLambung: "SAMT072", NoPolisi: "DA 8729 CB", DriverName: "JOYO LUMBANRAJA", SPPNumber: "SPG-BJM-2612481", CustomerID: "C400", CustomerName: "PT KAPUAS MAJU JAYA"}
-				if body.Data != want {
+				wantDestinations := test.wantDestinations
+				if wantDestinations == nil {
+					wantDestinations = []string{movement.OutFillingShed}
+				}
+				if body.Data.LookupDocument != want || !reflect.DeepEqual(body.Data.AllowedOutDestinations, wantDestinations) {
 					t.Fatal("lookup did not return the normalized confirmed fixture")
 				}
 			} else if body.Error.Code != test.wantCode || (test.wantMessage != "" && body.Error.Message != test.wantMessage) {

@@ -14,7 +14,7 @@ import (
 
 type DocumentLookup interface {
 	LookupWorkshop(context.Context, string) (movement.LookupDocument, error)
-	LookupSPP(context.Context, string) (movement.LookupDocument, error)
+	LookupSPP(context.Context, string) (movement.SPPLookupDocument, error)
 }
 
 // workshopLookupHandler looks up the unit and driver details for a scanned work order.
@@ -33,7 +33,7 @@ type DocumentLookup interface {
 // @Security BearerAuth
 // @Router /api/v1/movement-documents/work-orders [get]
 func workshopLookupHandler(lookup DocumentLookup) gin.HandlerFunc {
-	return documentLookupHandler(lookup, "WO", func(ctx context.Context, number string) (movement.LookupDocument, error) {
+	return documentLookupHandler(lookup, "WO", func(ctx context.Context, number string) (any, error) {
 		return lookup.LookupWorkshop(ctx, number)
 	})
 }
@@ -41,10 +41,11 @@ func workshopLookupHandler(lookup DocumentLookup) gin.HandlerFunc {
 // sppLookupHandler looks up the unit, driver, and customer details for a scanned SPP.
 //
 // @Summary Look up a scanned SPP
+// @Description Returns document data and backend-derived allowedOutDestinations. An empty array prevents a new SPP OUT but does not invalidate a returning-IN lookup. Submit always revalidates current eligibility.
 // @Tags Movements
 // @Produce json
 // @Param number query string true "SPP number"
-// @Success 200 {object} DataResponse{data=movement.LookupDocument}
+// @Success 200 {object} DataResponse{data=movement.SPPLookupDocument}
 // @Failure 400 {object} APIError
 // @Failure 401 {object} APIError
 // @Failure 403 {object} APIError
@@ -54,12 +55,12 @@ func workshopLookupHandler(lookup DocumentLookup) gin.HandlerFunc {
 // @Security BearerAuth
 // @Router /api/v1/movement-documents/spp [get]
 func sppLookupHandler(lookup DocumentLookup) gin.HandlerFunc {
-	return documentLookupHandler(lookup, "SPP", func(ctx context.Context, number string) (movement.LookupDocument, error) {
+	return documentLookupHandler(lookup, "SPP", func(ctx context.Context, number string) (any, error) {
 		return lookup.LookupSPP(ctx, number)
 	})
 }
 
-func documentLookupHandler(lookup DocumentLookup, documentType string, find func(context.Context, string) (movement.LookupDocument, error)) gin.HandlerFunc {
+func documentLookupHandler(lookup DocumentLookup, documentType string, find func(context.Context, string) (any, error)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if lookup == nil {
 			apiError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "movement document service is unavailable")

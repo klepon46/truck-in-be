@@ -126,6 +126,35 @@ definitions:
       workOrderNumber:
         type: string
     type: object
+  movement.SPPLookupDocument:
+    properties:
+      allowedOutDestinations:
+        description: Always present, including [] when this valid SPP cannot be used
+          for OUT. Does not restrict returning IN.
+        items:
+          enum:
+          - CUSTOMER
+          - FILLING_SHED_KUIN
+          type: string
+        type: array
+        x-nullable: false
+      customerId:
+        type: string
+      customerName:
+        type: string
+      driverName:
+        type: string
+      noLambung:
+        type: string
+      noPolisi:
+        type: string
+      sppNumber:
+        type: string
+      workOrderNumber:
+        type: string
+    required:
+    - allowedOutDestinations
+    type: object
   movement.Transaction:
     properties:
       actorId:
@@ -377,6 +406,9 @@ paths:
       - Movements
   /api/v1/movement-documents/spp:
     get:
+      description: Returns document data and backend-derived allowedOutDestinations.
+        An empty array prevents a new SPP OUT but does not invalidate a returning-IN
+        lookup. Submit always revalidates current eligibility.
       parameters:
       - description: SPP number
         in: query
@@ -393,7 +425,7 @@ paths:
             - $ref: '#/definitions/httpapi.DataResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/movement.LookupDocument'
+                  $ref: '#/definitions/movement.SPPLookupDocument'
               type: object
         "400":
           description: Bad Request

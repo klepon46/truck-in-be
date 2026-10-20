@@ -148,6 +148,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Returns document data and backend-derived allowedOutDestinations. An empty array prevents a new SPP OUT but does not invalidate a returning-IN lookup. Submit always revalidates current eligibility.",
                 "produces": [
                     "application/json"
                 ],
@@ -176,7 +177,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/movement.LookupDocument"
+                                            "$ref": "#/definitions/movement.SPPLookupDocument"
                                         }
                                     }
                                 }
@@ -1220,6 +1221,47 @@ const docTemplate = `{
         "movement.LookupDocument": {
             "type": "object",
             "properties": {
+                "customerId": {
+                    "type": "string"
+                },
+                "customerName": {
+                    "type": "string"
+                },
+                "driverName": {
+                    "type": "string"
+                },
+                "noLambung": {
+                    "type": "string"
+                },
+                "noPolisi": {
+                    "type": "string"
+                },
+                "sppNumber": {
+                    "type": "string"
+                },
+                "workOrderNumber": {
+                    "type": "string"
+                }
+            }
+        },
+        "movement.SPPLookupDocument": {
+            "type": "object",
+            "required": [
+                "allowedOutDestinations"
+            ],
+            "properties": {
+                "allowedOutDestinations": {
+                    "description": "Always present, including [] when this valid SPP cannot be used for OUT. Does not restrict returning IN.",
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "CUSTOMER",
+                            "FILLING_SHED_KUIN"
+                        ]
+                    },
+                    "x-nullable": false
+                },
                 "customerId": {
                     "type": "string"
                 },
