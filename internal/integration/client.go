@@ -83,7 +83,7 @@ func (c *Client) SPP(ctx context.Context, number string) (movement.Document, err
 			PoliceNo     string `json:"unit_police_no"`
 		} `json:"data"`
 	}
-	if err := c.getJSON(ctx, c.config.SAOSBaseURL, c.config.SAOSToken, "/api/v1/loading-orders?transNo="+url.QueryEscape(number), &response); err != nil {
+	if err := c.getJSON(ctx, c.config.SAOSBaseURL, c.config.SAOSToken, "/api/v2/loading-orders?search="+url.QueryEscape(number), &response); err != nil {
 		// getJSON returns only sanitized failure reasons, never a URL, token, or body.
 		slog.ErrorContext(ctx, "SPP upstream lookup failed", "error", err)
 		return movement.Document{}, fmt.Errorf("%w: SAOS lookup: %w", movement.ErrIntegrationUnavailable, err)
