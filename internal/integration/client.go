@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -70,6 +71,7 @@ func (c *Client) Workshop(ctx context.Context, number string) (movement.Document
 }
 
 func (c *Client) SPP(ctx context.Context, number string) (movement.Document, error) {
+	number = strings.TrimSpace(number)
 	var response struct {
 		Success *bool `json:"success"`
 		Data    *[]struct {
@@ -82,10 +84,21 @@ func (c *Client) SPP(ctx context.Context, number string) (movement.Document, err
 		} `json:"data"`
 	}
 	if err := c.getJSON(ctx, c.config.SAOSBaseURL, c.config.SAOSToken, "/api/v1/loading-orders?transNo="+url.QueryEscape(number), &response); err != nil {
-		return movement.Document{}, err
+		// getJSON returns only sanitized failure reasons, never a URL, token, or body.
+		slog.ErrorContext(ctx, "SPP upstream lookup failed", "error", err)
+		return movement.Document{}, fmt.Errorf("%w: SAOS lookup: %w", movement.ErrIntegrationUnavailable, err)
 	}
-	if response.Success == nil || !*response.Success || response.Data == nil {
+	if response.Success == nil {
+		slog.ErrorContext(ctx, "SPP upstream lookup failed", "reason", "invalid_response_envelope")
+		return movement.Document{}, fmt.Errorf("%w: SAOS returned an invalid response envelope", movement.ErrIntegrationUnavailable)
+	}
+	if !*response.Success {
+		slog.WarnContext(ctx, "SPP document rejected", "reason", "unsuccessful_response")
 		return movement.Document{}, ErrNotFound
+	}
+	if response.Data == nil {
+		slog.ErrorContext(ctx, "SPP upstream lookup failed", "reason", "missing_data_array")
+		return movement.Document{}, fmt.Errorf("%w: SAOS response is missing its data array", movement.ErrIntegrationUnavailable)
 	}
 	for _, record := range *response.Data {
 		if record.Number == number {
@@ -97,11 +110,14 @@ func (c *Client) SPP(ctx context.Context, number string) (movement.Document, err
 				CustomerName: strings.TrimSpace(record.CustomerName),
 			}
 			if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" {
+				slog.WarnContext(ctx, "SPP document rejected", "reason", "missing_required_fields",
+					"missing_unit", document.NoLambung == "", "missing_police", document.NoPolisi == "", "missing_driver", document.DriverName == "")
 				return movement.Document{}, ErrNotFound
 			}
 			return document, nil
 		}
 	}
+	slog.WarnContext(ctx, "SPP document rejected", "reason", "no_matching_trans_no")
 	return movement.Document{}, ErrNotFound
 }
 
@@ -218,13 +234,14 @@ func (c *Client) getJSON(ctx context.Context, baseURL, token, path string, desti
 	}
 	relative, err := url.Parse(path)
 	if err != nil {
-		return err
+		return errors.New("invalid integration path")
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, base.ResolveReference(relative).String(), nil)
 	if err != nil {
-		return err
+		return errors.New("create integration request")
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Accept", "application/json")
 	response, err := c.http.Do(request)
 	if err != nil {
 		return errors.New("call integration")

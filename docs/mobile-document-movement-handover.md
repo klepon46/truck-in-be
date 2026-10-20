@@ -34,13 +34,27 @@ Both endpoints return the fields needed to populate the form:
     "noLambung": "A122",
     "noPolisi": "DA 122 A",
     "driverName": "Driver Name",
-    "customerId": "CUST-1",
     "workOrderNumber": "WO-001"
   }
 }
 ```
 
 An SPP lookup returns `sppNumber` instead of `workOrderNumber`, plus the SAOS `customerId` (stable customer code) and `customerName` when supplied. Do not allow the satpam to edit document-populated unit, police, driver, or customer values.
+
+```json
+{
+  "data": {
+    "noLambung": "SAMT072",
+    "noPolisi": "DA 8729 CB",
+    "driverName": "Driver Name",
+    "sppNumber": "SPG-BJM-2612481",
+    "customerId": "C400",
+    "customerName": "Customer Name"
+  }
+}
+```
+
+UnitLog reads SAOS `data` as an array and selects the exact matching `trans_no`. It trims the full requested number and driver name; `customerId` comes from `customer_code`. The unit code and police number must match an active Unit Lambung snapshot. Extra SAOS fields such as capacity, quantity, and `is_marked` do not affect this lookup.
 
 ## OTHER Pickers
 
@@ -112,6 +126,9 @@ For OUT, replace `inCategory` with `outDestination: "OTHER"`. OTHER must use bot
 - `404 UNIT_NOT_FOUND`: document vehicle code does not resolve to an active Unit Lambung snapshot.
 - `422 DOCUMENT_VALIDATION_FAILED`: document data is invalid, conflicts with its resolved unit/police data, or an IN document does not match the open OUT.
 - `422 INVALID_TRANSITION`: another movement changed the unit state before submit.
+- `500 INTERNAL_ERROR`: SPP integration/configuration, upstream authentication/service, connection, or response-parsing failure. This is not a document-validation rejection. Do not tell the satpam to change the SPP number solely because of this response.
+
+For a unit/police mismatch, the validation message asks operations to check master data; never override the resolved unit or bypass this validation. Keep the stable HTTP status/code as the app contract rather than matching error-message text. See [SPP lookup troubleshooting](spp-lookup-troubleshooting.md) for backend diagnostics.
 
 ## Client Rules
 

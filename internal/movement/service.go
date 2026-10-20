@@ -22,6 +22,8 @@ var (
 	ErrSPPMismatch            = errors.New("SPP does not match the active SPP")
 	ErrCustomerMismatch       = errors.New("customer does not match the active SPP")
 	ErrExternalDocument       = errors.New("external document is invalid")
+	ErrIntegrationUnavailable = errors.New("document integration is unavailable")
+	ErrDocumentUnitMismatch   = errors.New("document vehicle or police number does not match Unit Lambung")
 	ErrReturnDocumentMismatch = errors.New("arrival document does not match the departure")
 )
 
@@ -105,6 +107,9 @@ func (s *Service) LookupSPP(ctx context.Context, number string) (LookupDocument,
 	}
 	document, err := s.documents.SPP(ctx, strings.TrimSpace(number))
 	if err != nil {
+		if errors.Is(err, ErrIntegrationUnavailable) {
+			return LookupDocument{}, err
+		}
 		return LookupDocument{}, errors.Join(ErrExternalDocument, err)
 	}
 	return s.lookupDocument(ctx, document, LookupDocument{SPPNumber: strings.TrimSpace(number), CustomerID: document.CustomerID, CustomerName: document.CustomerName})
@@ -300,6 +305,9 @@ func (s *Service) validateDocument(ctx context.Context, input *Input) (Document,
 	case input.SPPNumber != "":
 		document, err := s.documents.SPP(ctx, input.SPPNumber)
 		if err != nil {
+			if errors.Is(err, ErrIntegrationUnavailable) {
+				return Document{}, fmt.Errorf("validate SPP document: %w", err)
+			}
 			return Document{}, errors.Join(ErrExternalDocument, fmt.Errorf("validate SPP document: %w", err))
 		}
 		if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" || !strings.EqualFold(document.NoLambung, input.NoLambung) {
@@ -321,7 +329,7 @@ func validateDocumentUnit(document Document, unit snapshot) error {
 		return nil
 	}
 	if !strings.EqualFold(document.NoLambung, unit.NoLambung) || !strings.EqualFold(strings.TrimSpace(document.NoPolisi), strings.TrimSpace(unit.NoPolisi)) {
-		return ErrExternalDocument
+		return errors.Join(ErrExternalDocument, ErrDocumentUnitMismatch)
 	}
 	return nil
 }

@@ -381,6 +381,8 @@ Current implementation limitation: each CSV export fetches at most the first 100
 
 UnitLog provides WO/SPP lookup routes to populate the confirmation form. These calls are read-only convenience lookups, not a reservation or approval: the movement submit still revalidates the document and current transition state.
 
+SPP upstream authentication/service, connection, and malformed-response failures return `500 INTERNAL_ERROR`, not `422 DOCUMENT_VALIDATION_FAILED`. A genuine document or unit/police mismatch still returns 422; a document unit that cannot be found returns `404 UNIT_NOT_FOUND`. Display the safe server validation message, but base client behavior on the status/code. See [SPP lookup troubleshooting](spp-lookup-troubleshooting.md).
+
 ## Screen Delivery Checklist
 
 ### Android Satpam

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -32,7 +33,7 @@ type DocumentLookup interface {
 // @Security BearerAuth
 // @Router /api/v1/movement-documents/work-orders [get]
 func workshopLookupHandler(lookup DocumentLookup) gin.HandlerFunc {
-	return documentLookupHandler(lookup, func(ctx context.Context, number string) (movement.LookupDocument, error) {
+	return documentLookupHandler(lookup, "WO", func(ctx context.Context, number string) (movement.LookupDocument, error) {
 		return lookup.LookupWorkshop(ctx, number)
 	})
 }
@@ -53,12 +54,12 @@ func workshopLookupHandler(lookup DocumentLookup) gin.HandlerFunc {
 // @Security BearerAuth
 // @Router /api/v1/movement-documents/spp [get]
 func sppLookupHandler(lookup DocumentLookup) gin.HandlerFunc {
-	return documentLookupHandler(lookup, func(ctx context.Context, number string) (movement.LookupDocument, error) {
+	return documentLookupHandler(lookup, "SPP", func(ctx context.Context, number string) (movement.LookupDocument, error) {
 		return lookup.LookupSPP(ctx, number)
 	})
 }
 
-func documentLookupHandler(lookup DocumentLookup, find func(context.Context, string) (movement.LookupDocument, error)) gin.HandlerFunc {
+func documentLookupHandler(lookup DocumentLookup, documentType string, find func(context.Context, string) (movement.LookupDocument, error)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if lookup == nil {
 			apiError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "movement document service is unavailable")
@@ -74,11 +75,26 @@ func documentLookupHandler(lookup DocumentLookup, find func(context.Context, str
 			c.JSON(http.StatusOK, gin.H{"data": result})
 			return
 		}
+		// Only log allowlisted reasons; never log upstream bodies or personal data.
+		reason := "internal_error"
+		switch {
+		case errors.Is(err, movement.ErrIntegrationUnavailable):
+			reason = "integration_unavailable"
+		case errors.Is(err, movement.ErrDocumentUnitMismatch):
+			reason = "unit_police_mismatch"
+		case errors.Is(err, movement.ErrUnitNotFound):
+			reason = "unit_not_found"
+		case errors.Is(err, movement.ErrExternalDocument):
+			reason = "document_invalid"
+		}
+		slog.ErrorContext(c.Request.Context(), "movement document lookup failed", "document_type", documentType, "reason", reason)
 		switch {
 		case errors.Is(err, movement.ErrInvalidInput):
 			apiError(c, http.StatusBadRequest, "INVALID_DOCUMENT_QUERY", "document number is invalid")
 		case errors.Is(err, movement.ErrUnitNotFound):
 			apiError(c, http.StatusNotFound, "UNIT_NOT_FOUND", "document unit was not found")
+		case errors.Is(err, movement.ErrDocumentUnitMismatch):
+			apiError(c, http.StatusUnprocessableEntity, "DOCUMENT_VALIDATION_FAILED", "document vehicle or police number does not match Unit Lambung; contact operations to check master data")
 		case errors.Is(err, movement.ErrExternalDocument):
 			apiError(c, http.StatusUnprocessableEntity, "DOCUMENT_VALIDATION_FAILED", "movement document is invalid")
 		default:
