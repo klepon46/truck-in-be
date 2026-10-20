@@ -58,3 +58,11 @@ Initialize the Go service, then implement UnitLog in vertical slices: safe start
 3. Regenerate Swagger, publish the APP Agent coordinate handover, update the existing handovers and Confluence PRD, and run the full Go and available PostgreSQL checks.
 
 Primary risk: silently breaking retries created by older apps. Mitigation: omit an empty coordinate field from the internal hash representation and test a frozen legacy payload hash. Apply migration before application deployment; never discard populated coordinate audit data during rollback.
+
+## Approved Extension: SPP OUT Eligibility
+
+1. Add a cycle-correlated SPP state reader and shared OUT policy, with unit tests and isolated PostgreSQL query verification. Distinguish missing correlation/eligibility from database failures; preserve legacy audit data.
+2. Add the SPP-only response array and use the shared policy under the submit lock after replay checks. Cover valid returning-IN lookups, completed/used SPP, and status changes after lookup. Preserve WO, coordinates, request hashes, SAOS V2, and existing permissions.
+3. Publish an APP eligibility handover, update the PRD and generated Swagger, then complete Go tests/vet/build, Docker tests, and isolated PostgreSQL checks.
+
+No migration is required. Main risks are deriving active SPP from unrelated old history, mixing status reads from different snapshots, and breaking replays after a successful OUT; the shared fact query and replay-first submit order address these. Staged user-owned prompt files must remain outside agent commits.
