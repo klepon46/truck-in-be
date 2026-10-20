@@ -50,3 +50,11 @@ Initialize the Go service, then implement UnitLog in vertical slices: safe start
 
 - JWT permission and identity claim names.
 - Database DSN key and the Jenkins deployment credential IDs.
+
+## Approved Extension: Optional Movement Coordinates
+
+1. Add validation/normalization for one optional `coordinates` string and regression tests proving legacy request hashes remain unchanged.
+2. Add migration 000005 and movement input/persistence/replay support, then expose nullable coordinates in authorized transaction-history JSON. Verify SQL and HTTP behavior without changing transitions, cycles, durations, permissions, CSV output, or the user-owned SAOS V2 adjustment.
+3. Regenerate Swagger, publish the APP Agent coordinate handover, update the existing handovers and Confluence PRD, and run the full Go and available PostgreSQL checks.
+
+Primary risk: silently breaking retries created by older apps. Mitigation: omit an empty coordinate field from the internal hash representation and test a frozen legacy payload hash. Apply migration before application deployment; never discard populated coordinate audit data during rollback.

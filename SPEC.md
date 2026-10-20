@@ -70,3 +70,12 @@ Use explicit dependencies, context-aware database calls, parameterized SQL, UTC 
 - Configure the confirmed Auth Service claim names through `auth_permissions_claim`, `auth_actor_id_claim`, and `auth_actor_name_claim` before protected endpoints are exposed.
 - Confirm database DSN field name in the existing Consul configuration; this spec uses `postgres_dsn`.
 - Confirm Jenkins credential IDs and deployment host/runbook before enabling automatic development deployment.
+
+## Approved Extension: Optional Movement Coordinates
+
+- IN and OUT submissions may include one string field, `coordinates`, in `latitude,longitude` order, for every document/OTHER source. Omitted, null, empty, and whitespace-only input mean no coordinates.
+- Each component is a signed decimal number (decimal point, not a decimal comma or exponent); trim whitespace around each component, preserve the supplied precision, and reject malformed pairs or values outside latitude `[-90,90]` / longitude `[-180,180]`. Limit the normalized pair to 100 characters. Zero coordinates are valid.
+- Persist the normalized pair as a nullable immutable movement snapshot. Return it as `coordinates` (string or null) in movement responses/replays and authorized transaction-history JSON. No location backfill, geofencing, tracking, coordinate logging, or CSV expansion is included.
+- Preserve request hashes for old inputs without coordinates. A different coordinate value under an existing idempotency key conflicts; APP must persist and retry the original payload/key without acquiring or adding new coordinates to pending submissions.
+- Add a nullable-column migration before deploying the dependent application. Rollback must refuse to discard non-null coordinate audit data. Existing transitions, integration behavior (including the current SAOS V2 URL), permissions, cycles, and durations remain unchanged.
+- Verify with Go validation/hash, persistence/replay, HTTP binding/privacy, operations-history, Swagger, and PostgreSQL migration/immutability checks. Update the Confluence PRD and publish a dedicated APP Agent handover.

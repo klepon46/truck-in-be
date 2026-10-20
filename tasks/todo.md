@@ -36,3 +36,24 @@
 **Files likely touched:** `migrations/`
 
 **Estimated scope:** Small
+
+## Task 9: Optional Coordinate Validation And Legacy Hash Compatibility
+
+- [x] Accept/normalize a nullable-or-empty optional `latitude,longitude` string for IN/OUT; reject invalid format/range without logging location.
+- [x] Prove legacy request hashes do not change and changed coordinates conflict on replay.
+- Verify: `go test ./internal/movement -count=1`.
+- Dependencies: approved coordinate contract in `SPEC.md`.
+- Scope: `internal/movement/validation.go` and focused coordinate tests.
+
+## Task 10: Coordinate Audit Persistence And HTTP Contract
+
+- [ ] Add migration 000005 with immutable nullable coordinates and safe rollback; persist/replay string-or-null values.
+- [ ] Bind the app request and expose coordinates in authorized transaction-history JSON, not unit pickers or CSV.
+- Verify: focused movement/HTTP/operations tests and PostgreSQL migration/immutability checks when available.
+- Dependencies: Task 9. Scope: migration, movement service, HTTP handler, operations history, and matching tests.
+
+## Task 11: Coordinate APP Handover And PRD
+
+- [ ] Publish a dedicated APP Agent guide covering optional acquisition, format, retries, null handling, errors, and deployment order; update existing handovers and PRD.
+- [ ] Regenerate Swagger and complete `go test ./...`, `go vet ./...`, `go build ./...`, and diff review.
+- Dependencies: Task 10. Scope: generated API docs, handovers, and Confluence PRD.

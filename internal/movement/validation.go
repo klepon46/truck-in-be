@@ -36,6 +36,8 @@ type Input struct {
 	DriverID        int64
 	DriverName      string
 	Note            string
+	// Omitting the empty field preserves hashes created before coordinates existed.
+	Coordinates string `json:",omitempty"`
 }
 
 type Status struct {
@@ -51,10 +53,11 @@ func (i *Input) Normalize() {
 	i.SPPNumber = strings.TrimSpace(i.SPPNumber)
 	i.DriverName = strings.TrimSpace(i.DriverName)
 	i.Note = strings.TrimSpace(i.Note)
+	i.Coordinates = normalizeCoordinates(i.Coordinates)
 }
 
 func (i Input) Validate() error {
-	if i.NoLambung == "" || (i.Direction != DirectionIn && i.Direction != DirectionOut) {
+	if i.NoLambung == "" || (i.Direction != DirectionIn && i.Direction != DirectionOut) || !validCoordinates(i.Coordinates) {
 		return ErrInvalidInput
 	}
 	if i.Direction == DirectionIn {
