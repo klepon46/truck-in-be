@@ -107,8 +107,8 @@
 
 ## Task 19: Android Not-Found HTTP Contract
 
-- [ ] Preserve document-specific errors through lookup and submit; return HTTP 404 with fixed public codes/messages and allowlisted log reasons.
-- [ ] Verify both documents/directions, no writes on failure, safe diagnostics, and unchanged replay.
+- [x] Preserve document-specific errors through lookup and submit; return HTTP 404 with fixed public codes/messages and allowlisted log reasons.
+- [x] Verify both documents/directions, no writes on failure, safe diagnostics, and unchanged replay (42 local HTTP scenarios plus IN/OUT replay/conflict tests; Go tests/vet/build passed).
 - Verify: focused HTTP/movement tests, then `go test ./... -count=1`.
 - Dependencies: Task 18. Scope: movement service and HTTP handlers/tests.
 
