@@ -97,3 +97,23 @@
 - [x] Document test-only activation/restoration in Consul, startup restart requirement, client-reported snapshot risks, and unchanged APP payloads.
 - [x] Update PRD (Draf v1.15 / Confluence version 21, read-back verified), relevant handovers, and Swagger descriptions; pass Go tests/vet/build, Docker test image, and focused correctness/security review. Local HTTP tests reproduce picker success/full-name 404 and verify both bypass directions without live movements.
 - Dependencies: Task 16. Preserve user-owned staged/untracked documents.
+
+## Task 18: Upstream Document Absence Classification
+
+- [x] Add typed WO/SPP absence errors and decode the verified Workshop 404 / SAOS successful no-exact-match contracts.
+- [x] Distinguish incomplete documents and transport/envelope failures; preserve generic Driver/Unit Lambung behavior.
+- Verify: failing-then-passing integration classification tests; `go test ./internal/integration -count=1`.
+- Scope: integration client/tests and movement error declarations.
+
+## Task 19: Android Not-Found HTTP Contract
+
+- [ ] Preserve document-specific errors through lookup and submit; return HTTP 404 with fixed public codes/messages and allowlisted log reasons.
+- [ ] Verify both documents/directions, no writes on failure, safe diagnostics, and unchanged replay.
+- Verify: focused HTTP/movement tests, then `go test ./... -count=1`.
+- Dependencies: Task 18. Scope: movement service and HTTP handlers/tests.
+
+## Task 20: Document Errors Handover And Verification
+
+- [ ] Update Swagger, standalone APP handover, troubleshooting, related handovers, and PRD.
+- [ ] Pass full tests/vet/build, Docker tests, and correctness/security review; no live mutations or configuration changes.
+- Dependencies: Task 19. Preserve unrelated user work.

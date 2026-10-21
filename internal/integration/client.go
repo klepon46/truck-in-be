@@ -44,8 +44,11 @@ func NewClient(config Config) *Client {
 }
 
 func (c *Client) Workshop(ctx context.Context, number string) (movement.Document, error) {
+	number = strings.TrimSpace(number)
 	var response struct {
-		Success *bool `json:"success"`
+		Success *bool  `json:"success"`
+		Code    int    `json:"code"`
+		Message string `json:"message"`
 		Data    *struct {
 			Number     string `json:"work_order_number"`
 			DriverName string `json:"driver_name"`
@@ -53,11 +56,23 @@ func (c *Client) Workshop(ctx context.Context, number string) (movement.Document
 			PoliceNo   string `json:"police_no"`
 		} `json:"data"`
 	}
-	if err := c.getJSON(ctx, c.config.WorkshopBaseURL, c.config.WorkshopToken, "/internal/v1/work-orders/by-wo?wo-number="+url.QueryEscape(number), &response); err != nil {
-		return movement.Document{}, err
+	status, err := c.getJSONStatus(ctx, c.config.WorkshopBaseURL, c.config.WorkshopToken, "/internal/v1/work-orders/by-wo?wo-number="+url.QueryEscape(number), &response, true)
+	if err != nil {
+		slog.ErrorContext(ctx, "WO upstream lookup failed", "error", err)
+		return movement.Document{}, fmt.Errorf("%w: Workshop lookup: %w", movement.ErrIntegrationUnavailable, err)
 	}
-	if response.Success == nil || !*response.Success || response.Data == nil || response.Data.Number != number {
-		return movement.Document{}, ErrNotFound
+	if status == http.StatusNotFound {
+		// Match Workshop's explicit absence contract, never a generic route/proxy 404.
+		if response.Success != nil && !*response.Success && response.Code == http.StatusNotFound && response.Message == "Work order not found" && response.Data == nil {
+			return movement.Document{}, movement.ErrWorkOrderNotFound
+		}
+		return movement.Document{}, fmt.Errorf("%w: Workshop returned an unexpected 404 response", movement.ErrIntegrationUnavailable)
+	}
+	if response.Success == nil || (*response.Success && response.Data == nil) {
+		return movement.Document{}, fmt.Errorf("%w: Workshop returned an invalid response envelope", movement.ErrIntegrationUnavailable)
+	}
+	if !*response.Success || response.Data.Number != number {
+		return movement.Document{}, movement.ErrExternalDocument
 	}
 	document := movement.Document{
 		NoLambung:  strings.ToUpper(strings.TrimSpace(response.Data.VehicleNo)),
@@ -65,7 +80,7 @@ func (c *Client) Workshop(ctx context.Context, number string) (movement.Document
 		DriverName: strings.TrimSpace(response.Data.DriverName),
 	}
 	if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" {
-		return movement.Document{}, ErrNotFound
+		return movement.Document{}, movement.ErrExternalDocument
 	}
 	return document, nil
 }
@@ -73,15 +88,8 @@ func (c *Client) Workshop(ctx context.Context, number string) (movement.Document
 func (c *Client) SPP(ctx context.Context, number string) (movement.Document, error) {
 	number = strings.TrimSpace(number)
 	var response struct {
-		Success *bool `json:"success"`
-		Data    *[]struct {
-			Number       string `json:"trans_no"`
-			DriverName   string `json:"driver_name"`
-			CustomerID   string `json:"customer_code"`
-			CustomerName string `json:"customer_name"`
-			VehicleNo    string `json:"unit_name"`
-			PoliceNo     string `json:"unit_police_no"`
-		} `json:"data"`
+		Success *bool           `json:"success"`
+		Data    json.RawMessage `json:"data"`
 	}
 	if err := c.getJSON(ctx, c.config.SAOSBaseURL, c.config.SAOSToken, "/api/v2/loading-orders?search="+url.QueryEscape(number), &response); err != nil {
 		// getJSON returns only sanitized failure reasons, never a URL, token, or body.
@@ -94,13 +102,25 @@ func (c *Client) SPP(ctx context.Context, number string) (movement.Document, err
 	}
 	if !*response.Success {
 		slog.WarnContext(ctx, "SPP document rejected", "reason", "unsuccessful_response")
-		return movement.Document{}, ErrNotFound
+		return movement.Document{}, movement.ErrExternalDocument
 	}
-	if response.Data == nil {
+	if len(response.Data) == 0 {
 		slog.ErrorContext(ctx, "SPP upstream lookup failed", "reason", "missing_data_array")
 		return movement.Document{}, fmt.Errorf("%w: SAOS response is missing its data array", movement.ErrIntegrationUnavailable)
 	}
-	for _, record := range *response.Data {
+	var records []struct {
+		Number       string `json:"trans_no"`
+		DriverName   string `json:"driver_name"`
+		CustomerID   string `json:"customer_code"`
+		CustomerName string `json:"customer_name"`
+		VehicleNo    string `json:"unit_name"`
+		PoliceNo     string `json:"unit_police_no"`
+	}
+	// SAOS returns a nil slice as explicit null when a successful query has no rows.
+	if err := json.Unmarshal(response.Data, &records); err != nil {
+		return movement.Document{}, fmt.Errorf("%w: SAOS returned an invalid data array", movement.ErrIntegrationUnavailable)
+	}
+	for _, record := range records {
 		if record.Number == number {
 			document := movement.Document{
 				NoLambung:    strings.ToUpper(strings.TrimSpace(record.VehicleNo)),
@@ -112,13 +132,13 @@ func (c *Client) SPP(ctx context.Context, number string) (movement.Document, err
 			if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" {
 				slog.WarnContext(ctx, "SPP document rejected", "reason", "missing_required_fields",
 					"missing_unit", document.NoLambung == "", "missing_police", document.NoPolisi == "", "missing_driver", document.DriverName == "")
-				return movement.Document{}, ErrNotFound
+				return movement.Document{}, movement.ErrExternalDocument
 			}
 			return document, nil
 		}
 	}
 	slog.WarnContext(ctx, "SPP document rejected", "reason", "no_matching_trans_no")
-	return movement.Document{}, ErrNotFound
+	return movement.Document{}, movement.ErrSPPNotFound
 }
 
 type ActiveDriver struct {
@@ -228,33 +248,39 @@ func (c *Client) Units(ctx context.Context, cursor string, size int) (UnitPage, 
 }
 
 func (c *Client) getJSON(ctx context.Context, baseURL, token, path string, destination any) error {
+	_, err := c.getJSONStatus(ctx, baseURL, token, path, destination, false)
+	return err
+}
+
+// Only Workshop opts into decoding 404 to verify its documented not-found envelope.
+func (c *Client) getJSONStatus(ctx context.Context, baseURL, token, path string, destination any, decodeNotFound bool) (int, error) {
 	base, err := url.Parse(baseURL)
 	if err != nil || base.Scheme == "" || base.Host == "" {
-		return errors.New("invalid integration base URL")
+		return 0, errors.New("invalid integration base URL")
 	}
 	relative, err := url.Parse(path)
 	if err != nil {
-		return errors.New("invalid integration path")
+		return 0, errors.New("invalid integration path")
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, base.ResolveReference(relative).String(), nil)
 	if err != nil {
-		return errors.New("create integration request")
+		return 0, errors.New("create integration request")
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Accept", "application/json")
 	response, err := c.http.Do(request)
 	if err != nil {
-		return errors.New("call integration")
+		return 0, errors.New("call integration")
 	}
 	defer response.Body.Close()
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("integration returned status %d", response.StatusCode)
+	if (response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices) && !(decodeNotFound && response.StatusCode == http.StatusNotFound) {
+		return response.StatusCode, fmt.Errorf("integration returned status %d", response.StatusCode)
 	}
 	decoder := json.NewDecoder(io.LimitReader(response.Body, 1<<20))
 	if err := decoder.Decode(destination); err != nil {
-		return errors.New("parse integration response")
+		return response.StatusCode, errors.New("parse integration response")
 	}
-	return nil
+	return response.StatusCode, nil
 }
 
 func parseID(raw json.RawMessage) (int64, error) {

@@ -72,3 +72,9 @@ No migration is required. Main risks are deriving active SPP from unrelated old 
 1. Add a strict boolean Consul option with safe true defaults and immutable movement-service configuration. Bypass only the OTHER driver revalidation call when false; keep positive-ID/name/note validation and every other movement rule.
 2. Reproduce the picker-success/full-name-submit-404 flow in focused tests, then verify disabled OTHER IN/OUT persistence, cycles/durations, replay, and unchanged WO/SPP/picker behavior.
 3. Update Swagger descriptions, PRD, and APP/operations handovers. Run full tests/vet/build and available Docker checks. Do not modify live Consul configuration or include user-staged prompt files in commits.
+
+## Approved Extension: WO/SPP Not-Found Errors
+
+1. Add document-specific domain errors and regression tests for the verified upstream source contracts. Decode Workshop's explicit 404 envelope only on that integration path; separate genuine absence from malformed/invalid/infrastructure failures. Accept SAOS's explicit null empty result while rejecting an omitted data field.
+2. Preserve the typed failures through lookup and fresh submit, expose 404 codes/messages to Android, and add safe log reasons. Verify all directions, replay, no movement writes on failure, and unchanged Driver/Unit Lambung behavior.
+3. Update Swagger and a standalone APP handover plus affected guides/PRD. Run full Go test/vet/build and Docker tests; no live calls, configuration edits, migrations, or movements.

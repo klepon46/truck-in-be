@@ -114,6 +114,10 @@ func movementError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, movement.ErrInvalidInput):
 		apiError(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "movement input is invalid")
+	case errors.Is(err, movement.ErrWorkOrderNotFound):
+		apiError(c, http.StatusNotFound, "WORK_ORDER_NOT_FOUND", "WO tidak ditemukan di Workshop.")
+	case errors.Is(err, movement.ErrSPPNotFound):
+		apiError(c, http.StatusNotFound, "SPP_NOT_FOUND", "SPP tidak ditemukan di SAOS.")
 	case errors.Is(err, movement.ErrUnitNotFound):
 		apiError(c, http.StatusNotFound, "UNIT_NOT_FOUND", "unit was not found")
 	case errors.Is(err, movement.ErrInvalidTransition):

@@ -60,8 +60,8 @@ func TestSPPLookupIntegration(t *testing.T) {
 		{name: "unit not found", response: sppLookupFixture, querySnapshot: true, wantStatus: 404, wantCode: "UNIT_NOT_FOUND"},
 		{name: "police mismatch", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 0000 XX", wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED", wantMessage: "document vehicle or police number does not match Unit Lambung; contact operations to check master data", wantLog: "unit_police_mismatch"},
 		{name: "database failure is not empty eligibility", response: sppLookupFixture, querySnapshot: true, databaseFailure: true, wantStatus: 500, wantCode: "INTERNAL_ERROR"},
-		{name: "no exact match", response: strings.ReplaceAll(sppLookupFixture, "SPG-BJM-2612481", "OTHER-SPP"), wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED"},
-		{name: "empty array", response: `{"success":true,"data":[]}`, wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED"},
+		{name: "no exact match", response: strings.ReplaceAll(sppLookupFixture, "SPG-BJM-2612481", "OTHER-SPP"), wantStatus: 404, wantCode: "SPP_NOT_FOUND", wantLog: "spp_not_found"},
+		{name: "empty array", response: `{"success":true,"data":[]}`, wantStatus: 404, wantCode: "SPP_NOT_FOUND", wantLog: "spp_not_found"},
 		{name: "unsuccessful document", response: `{"success":false,"data":null}`, wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED"},
 		{name: "missing driver", response: strings.ReplaceAll(sppLookupFixture, "JOYO LUMBANRAJA ", " "), wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED"},
 		{name: "upstream unauthorized", upstreamStatus: 401, response: "sensitive upstream response", wantStatus: 500, wantCode: "INTERNAL_ERROR", wantLog: "integration returned status 401"},
@@ -69,7 +69,7 @@ func TestSPPLookupIntegration(t *testing.T) {
 		{name: "upstream service error", upstreamStatus: 503, response: "sensitive upstream response", wantStatus: 500, wantCode: "INTERNAL_ERROR"},
 		{name: "upstream internal error", upstreamStatus: 500, response: "sensitive upstream response", wantStatus: 500, wantCode: "INTERNAL_ERROR"},
 		{name: "malformed JSON", response: "sensitive upstream response", wantStatus: 500, wantCode: "INTERNAL_ERROR"},
-		{name: "invalid envelope", response: `{"success":true,"data":null}`, wantStatus: 500, wantCode: "INTERNAL_ERROR"},
+		{name: "invalid envelope", response: `{"success":true}`, wantStatus: 500, wantCode: "INTERNAL_ERROR"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var logs bytes.Buffer

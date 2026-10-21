@@ -19,6 +19,8 @@ var (
 	ErrIdempotencyConflict    = errors.New("idempotency key payload conflict")
 	ErrWorkOrderUsed          = errors.New("work order has already been used")
 	ErrSPPUsed                = errors.New("SPP has already been used")
+	ErrWorkOrderNotFound      = errors.New("work order not found in Workshop")
+	ErrSPPNotFound            = errors.New("SPP not found in SAOS")
 	ErrSPPMismatch            = errors.New("SPP does not match the active SPP")
 	ErrCustomerMismatch       = errors.New("customer does not match the active SPP")
 	ErrExternalDocument       = errors.New("external document is invalid")
@@ -115,6 +117,9 @@ func (s *Service) LookupWorkshop(ctx context.Context, number string) (LookupDocu
 	}
 	document, err := s.documents.Workshop(ctx, strings.TrimSpace(number))
 	if err != nil {
+		if errors.Is(err, ErrIntegrationUnavailable) || errors.Is(err, ErrWorkOrderNotFound) {
+			return LookupDocument{}, err
+		}
 		return LookupDocument{}, errors.Join(ErrExternalDocument, err)
 	}
 	return s.lookupDocument(ctx, document, LookupDocument{WorkOrderNumber: strings.TrimSpace(number)})
@@ -127,7 +132,7 @@ func (s *Service) LookupSPP(ctx context.Context, number string) (SPPLookupDocume
 	}
 	document, err := s.documents.SPP(ctx, number)
 	if err != nil {
-		if errors.Is(err, ErrIntegrationUnavailable) {
+		if errors.Is(err, ErrIntegrationUnavailable) || errors.Is(err, ErrSPPNotFound) {
 			return SPPLookupDocument{}, err
 		}
 		return SPPLookupDocument{}, errors.Join(ErrExternalDocument, err)
@@ -345,6 +350,9 @@ func (s *Service) validateDocument(ctx context.Context, input *Input) (Document,
 	case input.WorkOrderNumber != "":
 		document, err := s.documents.Workshop(ctx, input.WorkOrderNumber)
 		if err != nil {
+			if errors.Is(err, ErrIntegrationUnavailable) || errors.Is(err, ErrWorkOrderNotFound) {
+				return Document{}, fmt.Errorf("validate workshop document: %w", err)
+			}
 			return Document{}, errors.Join(ErrExternalDocument, fmt.Errorf("validate workshop document: %w", err))
 		}
 		if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" || !strings.EqualFold(document.NoLambung, input.NoLambung) {
@@ -354,7 +362,7 @@ func (s *Service) validateDocument(ctx context.Context, input *Input) (Document,
 	case input.SPPNumber != "":
 		document, err := s.documents.SPP(ctx, input.SPPNumber)
 		if err != nil {
-			if errors.Is(err, ErrIntegrationUnavailable) {
+			if errors.Is(err, ErrIntegrationUnavailable) || errors.Is(err, ErrSPPNotFound) {
 				return Document{}, fmt.Errorf("validate SPP document: %w", err)
 			}
 			return Document{}, errors.Join(ErrExternalDocument, fmt.Errorf("validate SPP document: %w", err))

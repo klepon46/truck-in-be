@@ -81,6 +81,10 @@ func documentLookupHandler(lookup DocumentLookup, documentType string, find func
 		switch {
 		case errors.Is(err, movement.ErrIntegrationUnavailable):
 			reason = "integration_unavailable"
+		case errors.Is(err, movement.ErrWorkOrderNotFound):
+			reason = "wo_not_found"
+		case errors.Is(err, movement.ErrSPPNotFound):
+			reason = "spp_not_found"
 		case errors.Is(err, movement.ErrDocumentUnitMismatch):
 			reason = "unit_police_mismatch"
 		case errors.Is(err, movement.ErrUnitNotFound):
@@ -92,6 +96,10 @@ func documentLookupHandler(lookup DocumentLookup, documentType string, find func
 		switch {
 		case errors.Is(err, movement.ErrInvalidInput):
 			apiError(c, http.StatusBadRequest, "INVALID_DOCUMENT_QUERY", "document number is invalid")
+		case errors.Is(err, movement.ErrWorkOrderNotFound):
+			apiError(c, http.StatusNotFound, "WORK_ORDER_NOT_FOUND", "WO tidak ditemukan di Workshop.")
+		case errors.Is(err, movement.ErrSPPNotFound):
+			apiError(c, http.StatusNotFound, "SPP_NOT_FOUND", "SPP tidak ditemukan di SAOS.")
 		case errors.Is(err, movement.ErrUnitNotFound):
 			apiError(c, http.StatusNotFound, "UNIT_NOT_FOUND", "document unit was not found")
 		case errors.Is(err, movement.ErrDocumentUnitMismatch):
