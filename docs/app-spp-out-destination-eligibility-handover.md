@@ -140,6 +140,7 @@ Lookup bukan reservasi. Satpam lain dapat mengubah status sebelum submit. BE sel
 
 | Respons submit | Tindakan APP |
 | --- | --- |
+| `404 SPP_NOT_FOUND` | Tampilkan `SPP tidak ditemukan di SAOS.`; tawarkan koreksi/scan ulang untuk percobaan baru, tanpa mengubah payload pending. |
 | `422 INVALID_TRANSITION` | Status tidak mengizinkan aksi; pertahankan form dan tawarkan lookup ulang untuk percobaan baru. |
 | `422 DOCUMENT_VALIDATION_FAILED` | Validasi dokumen, kecocokan unit/polisi, SPP aktif, customer, atau returning document gagal; tampilkan pesan aman dari BE. |
 | `409 SPP_USED` | SPP tidak dapat dipakai untuk departure tersebut; tawarkan koreksi atau dokumen lain. |

@@ -114,6 +114,6 @@
 
 ## Task 20: Document Errors Handover And Verification
 
-- [ ] Update Swagger, standalone APP handover, troubleshooting, related handovers, and PRD.
-- [ ] Pass full tests/vet/build, Docker tests, and correctness/security review; no live mutations or configuration changes.
+- [x] Update Swagger, standalone APP handover, troubleshooting, related handovers, and PRD (Draf v1.16 / Confluence version 22, read-back verified).
+- [x] Pass full Go tests/vet/build, Docker test image, JSON/Swagger contract checks, and correctness/security review; no live mutations or configuration changes. Source contracts were read locally, not verified against deployed upstream instances.
 - Dependencies: Task 19. Preserve unrelated user work.

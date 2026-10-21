@@ -130,12 +130,16 @@ For OUT, replace `inCategory` with `outDestination: "OTHER"`. OTHER must use bot
 ## Error Handling
 
 - `400 INVALID_DOCUMENT_QUERY`: QR/document number is empty or malformed for lookup.
+- `404 WORK_ORDER_NOT_FOUND`: `WO tidak ditemukan di Workshop.` Confirmed by the Workshop response; applies to lookup and fresh IN/OUT submit.
+- `404 SPP_NOT_FOUND`: `SPP tidak ditemukan di SAOS.` A successful SAOS search has no exact document match; applies to lookup and fresh IN/OUT submit.
 - `404 UNIT_NOT_FOUND`: document vehicle code does not resolve to an active Unit Lambung snapshot.
 - `422 DOCUMENT_VALIDATION_FAILED`: document data is invalid, conflicts with its resolved unit/police data, or an IN document does not match the open OUT.
 - `422 INVALID_TRANSITION`: another movement changed the unit state before submit.
-- `500 INTERNAL_ERROR`: SPP integration/configuration, upstream authentication/service, connection, or response-parsing failure. This is not a document-validation rejection. Do not tell the satpam to change the SPP number solely because of this response.
+- `500 INTERNAL_ERROR`: WO/SPP integration/configuration, upstream authentication/service, connection, or response-parsing failure. This is not document absence or a document-validation rejection. Do not tell the satpam to change the document number solely because of this response.
 
 For a unit/police mismatch, the validation message asks operations to check master data; never override the resolved unit or bypass this validation. Keep the stable HTTP status/code as the app contract rather than matching error-message text. See [SPP lookup troubleshooting](spp-lookup-troubleshooting.md) for backend diagnostics.
+
+The dedicated [WO/SPP not-found APP handover](mobile-document-not-found-handover.md) includes full error bodies, UI behavior, and pending retry rules. Do not interpret every 404 as a missing WO/SPP: `UNIT_NOT_FOUND` is a separate master-unit issue.
 
 ## Client Rules
 

@@ -20,6 +20,7 @@ type DocumentLookup interface {
 // workshopLookupHandler looks up the unit and driver details for a scanned work order.
 //
 // @Summary Look up a scanned work order
+// @Description Returns 404 WORK_ORDER_NOT_FOUND for confirmed Workshop absence, or 404 UNIT_NOT_FOUND for an unresolved document unit. Invalid document data remains 422; integration failures return 500.
 // @Tags Movements
 // @Produce json
 // @Param number query string true "Work order number"
@@ -42,6 +43,7 @@ func workshopLookupHandler(lookup DocumentLookup) gin.HandlerFunc {
 //
 // @Summary Look up a scanned SPP
 // @Description Returns document data and backend-derived allowedOutDestinations. An empty array prevents a new SPP OUT but does not invalidate a returning-IN lookup. Submit always revalidates current eligibility.
+// @Description Returns 404 SPP_NOT_FOUND when a successful SAOS search has no exact document match, or 404 UNIT_NOT_FOUND for an unresolved document unit. An explicit null SAOS result is an empty producer list; missing/malformed data and integration failures return 500.
 // @Tags Movements
 // @Produce json
 // @Param number query string true "SPP number"

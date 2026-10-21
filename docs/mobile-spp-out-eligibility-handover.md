@@ -59,6 +59,8 @@ UnitLog records only pool-boundary crossings. A direct `Pool â†’ Filling Shed â†
 
 OUT ineligibility alone is `200` with normal document data and `[]`. Genuinely invalid documents, unknown units, unit/police mismatches, and integration errors retain their documented error responses. Database read failures remain server errors, not successful empty arrays.
 
+Confirmed SPP absence now returns `404 SPP_NOT_FOUND` with `SPP tidak ditemukan di SAOS.` on lookup and fresh IN/OUT submit. This is different from valid `200` with an empty eligibility array, `404 UNIT_NOT_FOUND`, or integration `500 INTERNAL_ERROR`. See [the document-not-found APP handover](mobile-document-not-found-handover.md); keep pending requests separate from failed lookups.
+
 Lookup adds no movement, current-status-pointer, document reservation, cycle, or duration writes. The existing Unit Lambung master-cache refresh for an unknown unit is retained; it does not record a movement.
 
 ## Deployment And Verification

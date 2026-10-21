@@ -11,12 +11,15 @@ The adapter trims the full number without splitting `/`, decodes the SAOS `data`
 | HTTP / code | Meaning | Next check |
 | --- | --- | --- |
 | 200 with `allowedOutDestinations: []` | Document is valid but no new SPP OUT is currently eligible | Keep IN lookup usable; check current status, cycle correlation, stable customer code, and lifecycle. Missing trusted legacy cycle data is not permission to infer an older SPP. |
-| 422 `DOCUMENT_VALIDATION_FAILED` | No matching document, unsuccessful document response, or missing required document fields | Check the complete scanned number and the SAOS document data. |
+| 404 `SPP_NOT_FOUND` | A successful SAOS search has no exact `trans_no` match, including an empty array or explicit null result | Check the complete scanned number; this means unavailable in this lookup, not proof of deletion from every upstream table. |
+| 422 `DOCUMENT_VALIDATION_FAILED` | Unsuccessful document response or missing required fields on the matching document | Check the SAOS document data; this is not confirmed absence. |
 | 404 `UNIT_NOT_FOUND` | Document unit does not resolve to an active Unit Lambung snapshot | Check Unit Lambung master data and the latest successful sync. |
 | 422 `DOCUMENT_VALIDATION_FAILED`, with unit/police mismatch message | Document unit/police disagrees with the active snapshot | Compare SAOS and Unit Lambung; do not bypass validation or infer the unit from its plate. |
 | 500 `INTERNAL_ERROR` | SAOS request/configuration, authentication/service, connection, or malformed response failed | Check the server's sanitized upstream failure reason and deployment configuration. |
 
 Server logs distinguish `no_matching_trans_no`, `unsuccessful_response`, `missing_required_fields`, `invalid_response_envelope`, `missing_data_array`, `unit_not_found`, `unit_police_mismatch`, and `integration_unavailable`. Upstream HTTP failures include the status, not the body or authorization header. Driver/customer names and document payloads are not logged.
+
+The lookup-level absence reason is now `spp_not_found` (`wo_not_found` for Workshop). SAOS V2's handler returns a successful list and its repository can return a nil slice with no rows, serialized as explicit `data:null`; treat that as an empty result. An omitted `data` field or wrong data type remains an integration failure. SAOS HTTP 404 is a route/service failure, not its search-result absence contract. Workshop absence requires its documented HTTP 404 + `success:false` + `code:404` + `message:"Work order not found"` without a document; generic proxy/route 404 pages are not classified as document absence. See [the APP handover](mobile-document-not-found-handover.md).
 
 ## Snapshot Check For The Reported Document
 

@@ -42,6 +42,7 @@ type movementRequest struct {
 // @Summary Record a unit movement
 // @Description Records an IN or OUT transaction after document lookup or unit/driver selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER is required when returning from OTHER. Retries must reuse the same Idempotency-Key and request body.
 // @Description OTHER driver revalidation is enabled by default. The server-only validate_other_driver_on_submit=false testing option skips the Driver call for OTHER IN/OUT, not other movement checks; do not send this option in the request.
+// @Description Fresh document validation returns 404 WORK_ORDER_NOT_FOUND or SPP_NOT_FOUND for confirmed upstream absence. Invalid document data remains 422; integration failures return 500. Stored idempotent replays do not depend on current upstream document availability.
 // @Tags Movements
 // @Accept json
 // @Produce json

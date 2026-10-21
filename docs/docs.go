@@ -148,7 +148,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns document data and backend-derived allowedOutDestinations. An empty array prevents a new SPP OUT but does not invalidate a returning-IN lookup. Submit always revalidates current eligibility.",
+                "description": "Returns document data and backend-derived allowedOutDestinations. An empty array prevents a new SPP OUT but does not invalidate a returning-IN lookup. Submit always revalidates current eligibility.\nReturns 404 SPP_NOT_FOUND when a successful SAOS search has no exact document match, or 404 UNIT_NOT_FOUND for an unresolved document unit. An explicit null SAOS result is an empty producer list; missing/malformed data and integration failures return 500.",
                 "produces": [
                     "application/json"
                 ],
@@ -230,6 +230,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Returns 404 WORK_ORDER_NOT_FOUND for confirmed Workshop absence, or 404 UNIT_NOT_FOUND for an unresolved document unit. Invalid document data remains 422; integration failures return 500.",
                 "produces": [
                     "application/json"
                 ],
@@ -311,7 +312,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Records an IN or OUT transaction after document lookup or unit/driver selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER is required when returning from OTHER. Retries must reuse the same Idempotency-Key and request body.\nOTHER driver revalidation is enabled by default. The server-only validate_other_driver_on_submit=false testing option skips the Driver call for OTHER IN/OUT, not other movement checks; do not send this option in the request.",
+                "description": "Records an IN or OUT transaction after document lookup or unit/driver selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER is required when returning from OTHER. Retries must reuse the same Idempotency-Key and request body.\nOTHER driver revalidation is enabled by default. The server-only validate_other_driver_on_submit=false testing option skips the Driver call for OTHER IN/OUT, not other movement checks; do not send this option in the request.\nFresh document validation returns 404 WORK_ORDER_NOT_FOUND or SPP_NOT_FOUND for confirmed upstream absence. Invalid document data remains 422; integration failures return 500. Stored idempotent replays do not depend on current upstream document availability.",
                 "consumes": [
                     "application/json"
                 ],

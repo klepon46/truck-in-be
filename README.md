@@ -170,6 +170,8 @@ Successful list responses contain `data` and `pagination`. API errors use this s
 
 ### Swagger
 
+WO/SPP lookup and fresh movement submit distinguish confirmed absence with `404 WORK_ORDER_NOT_FOUND` / `404 SPP_NOT_FOUND`, separate from `404 UNIT_NOT_FOUND`, invalid-document 422, and integration 500. Android should branch on `error.code`; see [the standalone APP error handover](docs/mobile-document-not-found-handover.md).
+
 After startup, open `http://localhost:8105/swagger-ui/index.html`. Use **Authorize** to provide `Bearer <Auth Service JWT>` for protected routes. The generated OpenAPI document is available at `/swagger-ui/doc.json`. Legacy `/swagger/` paths permanently redirect to `/swagger-ui/`.
 
 Regenerate committed Swagger files after changing the HTTP contract:
