@@ -90,3 +90,11 @@ Use explicit dependencies, context-aware database calls, parameterized SQL, UTC 
 - No schema change or movement mutation during lookup. Preserve the existing master-unit cache refresher; no movement, status pointer, document reservation, cycle, or duration writes are added.
 - APP shows only returned destinations, clears invalid old selections, treats a missing field as unknown rather than allowing both, and never submits this derived field. Empty OUT eligibility must not block IN.
 - Verify domain/SQL query behavior, HTTP array/WO contracts, error distinctions, legacy fail-closed cases, stale lookup submit rejection, and replay/coordinate regressions. Update Swagger, PRD, and a dedicated APP handover. Deploy BE before the APP filtering release; never create live test movements.
+
+## Approved Extension: Temporary OTHER Driver Submit Validation Switch
+
+- Add the server-side Consul boolean `validate_other_driver_on_submit`, default true when absent/null. Only an explicit JSON boolean false disables submit-time Driver revalidation; reject malformed flag values rather than silently disabling validation.
+- Apply the switch to OTHER IN and OUT only. With false, persist the trimmed `driverId`/`driverName` supplied by APP without a Driver lookup. Require a positive driver ID, nonblank name/note, and all existing movement validations. These driver snapshots are client-reported, not verified active at submit.
+- The active-driver picker remains enabled and continues to require its configured Driver URL/token. Clients cannot disable validation through movement input. WO/SPP lookup/revalidation, unit validation, transitions, coordinates, cycle/duration behavior, and replay/hash contracts remain unchanged.
+- Resolve the flag at startup and configure the movement service immutably, defaulting existing constructors to validation enabled. Emit a safe startup warning when disabled. No migration or live configuration change is part of implementation; operators explicitly set false for testing and restart the service, then restore true afterward.
+- Verify safe config defaults/types, both OTHER directions with the observed upstream 404 behavior, local required-field validation, unchanged picker/document behavior, and replay compatibility. Update PRD and handovers with risks and enable/restore instructions.

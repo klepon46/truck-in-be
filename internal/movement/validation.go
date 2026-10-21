@@ -79,7 +79,7 @@ func (i Input) Validate() error {
 			return ErrInvalidInput
 		}
 	case OutOther:
-		if i.WorkOrderNumber != "" || i.SPPNumber != "" || i.DriverID == 0 || i.DriverName == "" || i.Note == "" {
+		if i.WorkOrderNumber != "" || i.SPPNumber != "" || i.DriverID < 1 || i.DriverName == "" || i.Note == "" {
 			return ErrInvalidInput
 		}
 	}
@@ -97,7 +97,7 @@ func validateInSource(input Input) error {
 			return ErrInvalidInput
 		}
 	case input.DriverID != 0 || input.DriverName != "" || input.Note != "":
-		if input.DriverID == 0 || input.DriverName == "" || input.Note == "" {
+		if input.DriverID < 1 || input.DriverName == "" || input.Note == "" {
 			return ErrInvalidInput
 		}
 	default:

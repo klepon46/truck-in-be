@@ -77,3 +77,23 @@
 - [x] Document filtering, missing versus empty arrays, selection clearing, IN behavior, legacy correlation, and BE-first deployment in APP handovers and PRD (Draf v1.14 / Confluence version 20).
 - [x] Regenerate Swagger; complete Go tests/vet/build, Docker test image, PostgreSQL query checks, and review.
 - Dependencies: Task 13. Scope: Swagger, handovers, PRD, and verification.
+
+## Task 15: Safe OTHER Driver Validation Configuration
+
+- [x] Decode `validate_other_driver_on_submit` with true-by-default behavior and reject nonboolean values.
+- [x] Configure the movement service at construction; skip Driver revalidation only for valid OTHER IN/OUT when false.
+- [x] Keep positive driver IDs, name/note, document checks, and driver picker configuration required.
+- Verify: config and movement unit tests. No migration or live configuration writes.
+
+## Task 16: OTHER Submit And Picker Regression Coverage
+
+- [x] Reproduce partial-name picker success followed by full-name submit 404; prove false skips the submit call for both directions while the picker still works.
+- [x] Verify immutable snapshots, unit/transitions/return-source checks, cycles/durations, replay and coordinates remain enforced.
+- Verify: focused HTTP/movement tests and complete Go suite.
+- Dependencies: Task 15.
+
+## Task 17: OTHER Switch PRD And Handover
+
+- [ ] Document test-only activation/restoration in Consul, startup restart requirement, client-reported snapshot risks, and unchanged APP payloads.
+- [ ] Update PRD, relevant handovers, and Swagger descriptions; run tests/vet/build, Docker checks, and review.
+- Dependencies: Task 16. Preserve user-owned staged/untracked documents.

@@ -60,7 +60,11 @@ func main() {
 		RequestTimeout: time.Duration(applicationConfig.HTTPClientRequestTimeoutMS) * time.Millisecond,
 	})
 	syncService := unitsync.NewService(db, integrationClient, applicationConfig.UnitSyncPageSize)
-	movementService := movement.NewService(db, syncService, integrationClient)
+	movementService := movement.NewService(db, syncService, integrationClient,
+		movement.WithOtherDriverValidation(applicationConfig.ValidateOtherDriverOnSubmit))
+	if !applicationConfig.ValidateOtherDriverOnSubmit {
+		slog.Warn("OTHER driver submit validation disabled", "directions", "IN,OUT", "driver_snapshot_source", "app")
+	}
 	operationsService := operations.NewService(db)
 
 	server := &http.Server{

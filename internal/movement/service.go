@@ -88,13 +88,25 @@ type Transaction struct {
 }
 
 type Service struct {
-	db        *sqlx.DB
-	refresher UnitRefresher
-	documents Documents
+	db                          *sqlx.DB
+	refresher                   UnitRefresher
+	documents                   Documents
+	validateOtherDriverOnSubmit bool
 }
 
-func NewService(db *sqlx.DB, refresher UnitRefresher, documents Documents) *Service {
-	return &Service{db: db, refresher: refresher, documents: documents}
+type ServiceOption func(*Service)
+
+// WithOtherDriverValidation controls submit-time checks only; the picker is unchanged.
+func WithOtherDriverValidation(enabled bool) ServiceOption {
+	return func(service *Service) { service.validateOtherDriverOnSubmit = enabled }
+}
+
+func NewService(db *sqlx.DB, refresher UnitRefresher, documents Documents, options ...ServiceOption) *Service {
+	service := &Service{db: db, refresher: refresher, documents: documents, validateOtherDriverOnSubmit: true}
+	for _, option := range options {
+		option(service)
+	}
+	return service
 }
 
 func (s *Service) LookupWorkshop(ctx context.Context, number string) (LookupDocument, error) {
@@ -322,6 +334,10 @@ func (t *Transaction) applyCycle(cycle movementCycle) {
 }
 
 func (s *Service) validateDocument(ctx context.Context, input *Input) (Document, error) {
+	// Record has already checked the OTHER payload. Never bypass a WO/SPP lookup.
+	if !s.validateOtherDriverOnSubmit && input.DriverID > 0 && input.WorkOrderNumber == "" && input.SPPNumber == "" {
+		return Document{DriverName: input.DriverName}, nil
+	}
 	if s.documents == nil {
 		return Document{}, ErrExternalDocument
 	}

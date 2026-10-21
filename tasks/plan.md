@@ -66,3 +66,9 @@ Primary risk: silently breaking retries created by older apps. Mitigation: omit 
 3. Publish an APP eligibility handover, update the PRD and generated Swagger, then complete Go tests/vet/build, Docker tests, and isolated PostgreSQL checks.
 
 No migration is required. Main risks are deriving active SPP from unrelated old history, mixing status reads from different snapshots, and breaking replays after a successful OUT; the shared fact query and replay-first submit order address these. Staged user-owned prompt files must remain outside agent commits.
+
+## Approved Extension: OTHER Driver Revalidation Switch
+
+1. Add a strict boolean Consul option with safe true defaults and immutable movement-service configuration. Bypass only the OTHER driver revalidation call when false; keep positive-ID/name/note validation and every other movement rule.
+2. Reproduce the picker-success/full-name-submit-404 flow in focused tests, then verify disabled OTHER IN/OUT persistence, cycles/durations, replay, and unchanged WO/SPP/picker behavior.
+3. Update Swagger descriptions, PRD, and APP/operations handovers. Run full tests/vet/build and available Docker checks. Do not modify live Consul configuration or include user-staged prompt files in commits.
