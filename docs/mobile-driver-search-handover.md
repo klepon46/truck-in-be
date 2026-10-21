@@ -69,7 +69,7 @@ An HTTP `200` with `data: []` is a valid result: no active driver matched the se
 7. Clear the selected item if the search text is edited after selection.
 8. At submission, send the selected values as `driverId` and `driverName`.
 
-The UnitLog backend validates the chosen driver again during movement submission. A driver result is therefore not a substitute for the final movement validation.
+By default, UnitLog validates the chosen driver again during movement submission. Operators may temporarily disable only that Driver call for OTHER IN/OUT using the server-side Consul flag `validate_other_driver_on_submit=false`. The active-driver picker and required positive `driverId`, nonblank `driverName`, and `note` remain unchanged. With the flag disabled, the stored driver snapshot is APP-reported, not verified active at submit. Do not send the flag from APP or relax picker selection; see [the OTHER validation handover](mobile-other-driver-validation-handover.md).
 
 ## OUT / OTHER Movement Submission
 

@@ -69,6 +69,8 @@ Authorization: Bearer <satpam-access-token>
 
 Use the selected unit's `noLambung` and display `noPolisi`. Use the selected driver's `id` and `driverName`. `note` remains manually entered and is required.
 
+OTHER driver revalidation at submit is enabled by default. The server-only testing flag `validate_other_driver_on_submit=false` skips the extra Driver call for OTHER IN/OUT, without changing pickers, required positive driver ID/name/note, or other movement checks. APP payloads stay unchanged; snapshots are then APP-reported rather than verified active at submit. See [the OTHER validation handover](mobile-other-driver-validation-handover.md).
+
 ## Submit Payloads
 
 `noLambung` is populated by the lookup or picker. It is not scanned from a unit QR.

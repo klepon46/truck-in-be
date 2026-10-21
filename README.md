@@ -99,10 +99,13 @@ Use `dev/be/truckin-be-config` for development and `prod/be/truckin-be-config` f
   "workshop_service_token": "<workshop-service-token>",
   "driver_api_base_url": "<driver-base-url>",
   "driver_service_token": "<driver-service-token>",
+  "validate_other_driver_on_submit": true,
   "http_client_connect_timeout_ms": 3000,
   "http_client_request_timeout_ms": 10000
 }
 ```
+
+`validate_other_driver_on_submit` is optional and defaults to `true` when absent or null. For approved temporary testing of OTHER IN/OUT, set the JSON boolean to `false` and restart every BE instance. Only the submit-time Driver call is skipped; the active-driver picker, positive driver ID/name/note requirements, and other movement rules remain enabled. Submitted driver snapshots are then client-reported, not verified active at submit. String/number/object values are rejected. Restore `true` and restart after testing; no migration or APP payload change is needed. See [the OTHER driver validation handover](docs/mobile-other-driver-validation-handover.md).
 
 Consul HTTPS is required by default. An internal HTTP Consul instance requires an explicit opt-in:
 

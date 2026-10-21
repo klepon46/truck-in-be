@@ -239,7 +239,7 @@ UnitLog records only pool-boundary crossings. For a direct `Pool → Filling She
 }
 ```
 
-`driverId`, `driverName`, and `note` are all required. Do not send `workOrderNumber` or `sppNumber`. UnitLog verifies that the selected driver is active through the Driver service.
+Positive `driverId`, nonblank `driverName`, and `note` are all required for OTHER IN/OUT. Do not send `workOrderNumber` or `sppNumber`. UnitLog verifies that the selected driver is active through the Driver service by default. Operators may temporarily skip only this submit-time call with the server-side Consul boolean `validate_other_driver_on_submit=false` and a BE restart. The picker and all other movement checks remain enabled; the snapshot is then APP-reported, not verified active at submit. APP must not send this flag or change pending retries. See [the OTHER validation handover](mobile-other-driver-validation-handover.md).
 
 ### Movement Response
 

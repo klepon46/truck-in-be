@@ -94,6 +94,6 @@
 
 ## Task 17: OTHER Switch PRD And Handover
 
-- [ ] Document test-only activation/restoration in Consul, startup restart requirement, client-reported snapshot risks, and unchanged APP payloads.
-- [ ] Update PRD, relevant handovers, and Swagger descriptions; run tests/vet/build, Docker checks, and review.
+- [x] Document test-only activation/restoration in Consul, startup restart requirement, client-reported snapshot risks, and unchanged APP payloads.
+- [x] Update PRD (Draf v1.15 / Confluence version 21, read-back verified), relevant handovers, and Swagger descriptions; pass Go tests/vet/build, Docker test image, and focused correctness/security review. Local HTTP tests reproduce picker success/full-name 404 and verify both bypass directions without live movements.
 - Dependencies: Task 16. Preserve user-owned staged/untracked documents.

@@ -311,7 +311,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Records an IN or OUT transaction after document lookup or unit/driver selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER is required when returning from OTHER. Retries must reuse the same Idempotency-Key and request body.",
+                "description": "Records an IN or OUT transaction after document lookup or unit/driver selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER is required when returning from OTHER. Retries must reuse the same Idempotency-Key and request body.\nOTHER driver revalidation is enabled by default. The server-only validate_other_driver_on_submit=false testing option skips the Driver call for OTHER IN/OUT, not other movement checks; do not send this option in the request.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1146,12 +1146,12 @@ const docTemplate = `{
                     "example": "OUT"
                 },
                 "driverId": {
-                    "description": "Required for OTHER movements in either direction.",
+                    "description": "Positive ID required for OTHER movements in either direction. Submit-time Driver revalidation is enabled by default and controlled only by server configuration.",
                     "type": "integer",
                     "example": 42
                 },
                 "driverName": {
-                    "description": "Required for OTHER movements in either direction.",
+                    "description": "Required for OTHER movements in either direction. Stored as a trimmed APP-reported snapshot when the server temporarily disables Driver revalidation.",
                     "type": "string",
                     "example": "Driver Name"
                 },

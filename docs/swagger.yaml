@@ -48,11 +48,15 @@ definitions:
         - OUT
         example: OUT
       driverId:
-        description: Required for OTHER movements in either direction.
+        description: Positive ID required for OTHER movements in either direction.
+          Submit-time Driver revalidation is enabled by default and controlled only
+          by server configuration.
         example: 42
         type: integer
       driverName:
-        description: Required for OTHER movements in either direction.
+        description: Required for OTHER movements in either direction. Stored as a
+          trimmed APP-reported snapshot when the server temporarily disables Driver
+          revalidation.
         example: Driver Name
         type: string
       inCategory:
@@ -509,10 +513,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Records an IN or OUT transaction after document lookup or unit/driver
-        selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER
-        is required when returning from OTHER. Retries must reuse the same Idempotency-Key
-        and request body.
+      description: |-
+        Records an IN or OUT transaction after document lookup or unit/driver selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER is required when returning from OTHER. Retries must reuse the same Idempotency-Key and request body.
+        OTHER driver revalidation is enabled by default. The server-only validate_other_driver_on_submit=false testing option skips the Driver call for OTHER IN/OUT, not other movement checks; do not send this option in the request.
       parameters:
       - description: UUID generated once per movement
         in: header

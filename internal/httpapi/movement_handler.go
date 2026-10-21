@@ -27,9 +27,9 @@ type movementRequest struct {
 	WorkOrderNumber string `json:"workOrderNumber" example:"WO-001"`
 	// Required for FILLING_SHED_KUIN or CUSTOMER OUT and a returning IN for either SPP departure.
 	SPPNumber string `json:"sppNumber" example:"SPP-001"`
-	// Required for OTHER movements in either direction.
+	// Positive ID required for OTHER movements in either direction. Submit-time Driver revalidation is enabled by default and controlled only by server configuration.
 	DriverID int64 `json:"driverId" example:"42"`
-	// Required for OTHER movements in either direction.
+	// Required for OTHER movements in either direction. Stored as a trimmed APP-reported snapshot when the server temporarily disables Driver revalidation.
 	DriverName string `json:"driverName" example:"Driver Name"`
 	// Required for OTHER movements in either direction; optional for document-backed OUT movements.
 	Note string `json:"note" example:"Operational note"`
@@ -41,6 +41,7 @@ type movementRequest struct {
 //
 // @Summary Record a unit movement
 // @Description Records an IN or OUT transaction after document lookup or unit/driver selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER is required when returning from OTHER. Retries must reuse the same Idempotency-Key and request body.
+// @Description OTHER driver revalidation is enabled by default. The server-only validate_other_driver_on_submit=false testing option skips the Driver call for OTHER IN/OUT, not other movement checks; do not send this option in the request.
 // @Tags Movements
 // @Accept json
 // @Produce json
