@@ -127,7 +127,7 @@
 ## Task 22: Canonical SPP Lifecycle With Original Request Replays
 
 - [x] Use canonical SPP for lookup eligibility, return matching, locked submit eligibility, unique reuse checks, audit/cycles/durations; echo reference for lookup/APP submit.
-- [ ] Hash/replay original payload before resolving; prove legacy and new retries/coordinate snapshots survive and conflicting payloads still fail.
+- [x] Hash/replay original payload before resolving; prove legacy and new retries/coordinate snapshots survive and conflicting payloads still fail. The disposable PostgreSQL lifecycle test passed: legacy open OUT → reference IN Gantungan → aliased OUT Customer → reference final IN; mismatch/reuse attempts add no movements and final counts are 4 movements / 3 durations / 2 closed cycles.
 - Verify: movement/HTTP tests plus isolated PostgreSQL end-to-end fixture where available. Dependencies: Task 21.
 
 ## Task 23: SPP Reference APP Contract And Verification

@@ -25,7 +25,7 @@ func (d *missingDocuments) Driver(context.Context, int64, string) error {
 }
 
 func TestStoredDocumentReplayPrecedesNotFoundRevalidation(t *testing.T) {
-	for _, kind := range []string{"WO", "SPP"} {
+	for _, kind := range []string{"WO", "SPP legacy", "SPP reference"} {
 		for _, direction := range []Direction{DirectionIn, DirectionOut} {
 			t.Run(kind+"/"+string(direction), func(t *testing.T) {
 				db, mock, err := sqlmock.New()
@@ -38,6 +38,9 @@ func TestStoredDocumentReplayPrecedesNotFoundRevalidation(t *testing.T) {
 					input.WorkOrderNumber, input.OutDestination = "DOC/001", OutWorkshop
 				} else {
 					input.SPPNumber, input.OutDestination = "DOC/001", OutFillingShed
+					if kind == "SPP reference" {
+						input.SPPNumber = "123-example"
+					}
 				}
 				if direction == DirectionIn {
 					input.InCategory, input.OutDestination = InWaitingForAssignment, ""
@@ -52,7 +55,7 @@ func TestStoredDocumentReplayPrecedesNotFoundRevalidation(t *testing.T) {
 				for _, conflict := range []bool{false, true} {
 					mock.ExpectQuery("SELECT m.transaction_id").WithArgs(key).
 						WillReturnRows(sqlmock.NewRows([]string{"transaction_id", "request_hash", "coordinates", "work_order_number", "spp_number"}).
-							AddRow(20, hash, "0,0", input.WorkOrderNumber, input.SPPNumber))
+							AddRow(20, hash, "0,0", input.WorkOrderNumber, "DOC/001"))
 					retry := input
 					if conflict {
 						retry.Coordinates = "1,1"
