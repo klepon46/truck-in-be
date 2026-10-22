@@ -10,7 +10,7 @@ Perubahan ini tidak mengubah flow WO/OTHER, pilihan kategori IN, atau payload mo
 
 ## 2. Lookup SPP
 
-QR SPP berisi nomor dokumen langsung, bukan URL. Isi nomor lengkap ke form setelah scan. Saat satpam menekan **Cek SPP**, panggil:
+QR SPP berisi referensi `{id}-{owner}`, misalnya `123-example`, bukan URL atau `trans_no` SAOS. Isi nilai lengkap ke form setelah scan. Saat satpam menekan **Cek SPP**, panggil:
 
 ```http
 GET <UNITLOG_BASE_URL>/api/v1/movement-documents/spp?number=<URL-encoded-SPP>
@@ -22,6 +22,8 @@ Authorization: Bearer <token-user>
 - Android hanya memanggil UnitLog. Jangan memanggil SAOS langsung, memakai service token, atau memanggil endpoint unit/history yang khusus web.
 - Lookup hanya mengisi form dan menghitung kelayakan. Lookup tidak membuat movement atau mereservasi dokumen.
 
+Lookup `sppNumber` tetap referensi `{id}-{owner}` untuk submit. BE memakai `trans_no` resmi hasil SAOS untuk eligibility, pencocokan IN, dan audit. Respons movement/history berisi nomor resmi tersebut, bukan referensi input; jangan dipakai untuk membentuk ulang payload. Lihat [handover ID/owner](mobile-spp-id-owner-handover.md).
+
 ## 3. Respons Sukses
 
 ```json
@@ -30,7 +32,7 @@ Authorization: Bearer <token-user>
     "noLambung": "SAMT119",
     "noPolisi": "DA 1234 AB",
     "driverName": "Driver Name",
-    "sppNumber": "SPP-001",
+    "sppNumber": "123-example",
     "customerId": "C400",
     "customerName": "Customer Name",
     "allowedOutDestinations": ["CUSTOMER"]
@@ -113,7 +115,7 @@ Contoh OUT Customer, hanya bila ditawarkan BE:
   "noLambung": "SAMT119",
   "direction": "OUT",
   "outDestination": "CUSTOMER",
-  "sppNumber": "SPP-001"
+  "sppNumber": "123-example"
 }
 ```
 
@@ -126,7 +128,7 @@ Contoh returning IN:
   "noLambung": "SAMT119",
   "direction": "IN",
   "inCategory": "WAITING_FOR_ASSIGNMENT",
-  "sppNumber": "SPP-001"
+  "sppNumber": "123-example"
 }
 ```
 

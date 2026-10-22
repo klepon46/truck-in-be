@@ -148,7 +148,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns document data and backend-derived allowedOutDestinations. An empty array prevents a new SPP OUT but does not invalidate a returning-IN lookup. Submit always revalidates current eligibility.\nReturns 404 SPP_NOT_FOUND when a successful SAOS search has no exact document match, or 404 UNIT_NOT_FOUND for an unresolved document unit. An explicit null SAOS result is an empty producer list; missing/malformed data and integration failures return 500.",
+                "description": "Returns document data and backend-derived allowedOutDestinations. An empty array prevents a new SPP OUT but does not invalidate a returning-IN lookup. Submit always revalidates current eligibility.\nAccepts an ID-owner reference (123-example), splitting on the first hyphen and encoding SAOS id and owner separately. Echoes the reference as sppNumber for submit, but eligibility uses the canonical SAOS trans_no. Malformed references return 400 INVALID_DOCUMENT_QUERY.\nReturns 404 SPP_NOT_FOUND for an empty/null successful SAOS result, or 404 UNIT_NOT_FOUND for an unresolved document unit. Conflicting document projections return 422; missing/malformed data and integration failures return 500.",
                 "produces": [
                     "application/json"
                 ],
@@ -159,7 +159,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "SPP number",
+                        "description": "SPP reference in {id}-{owner} format, e.g. 123-example; owner may contain hyphens",
                         "name": "number",
                         "in": "query",
                         "required": true
@@ -312,7 +312,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Records an IN or OUT transaction after document lookup or unit/driver selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER is required when returning from OTHER. Retries must reuse the same Idempotency-Key and request body.\nOTHER driver revalidation is enabled by default. The server-only validate_other_driver_on_submit=false testing option skips the Driver call for OTHER IN/OUT, not other movement checks; do not send this option in the request.\nFresh document validation returns 404 WORK_ORDER_NOT_FOUND or SPP_NOT_FOUND for confirmed upstream absence. Invalid document data remains 422; integration failures return 500. Stored idempotent replays do not depend on current upstream document availability.",
+                "description": "Records an IN or OUT transaction after document lookup or unit/driver selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER is required when returning from OTHER. Retries must reuse the same Idempotency-Key and request body.\nOTHER driver revalidation is enabled by default. The server-only validate_other_driver_on_submit=false testing option skips the Driver call for OTHER IN/OUT, not other movement checks; do not send this option in the request.\nFresh document validation returns 404 WORK_ORDER_NOT_FOUND or SPP_NOT_FOUND for confirmed upstream absence. Invalid document data remains 422; integration failures return 500. Stored idempotent replays do not depend on current upstream document availability.\nSPP input is an ID-owner reference (123-example), split on the first hyphen and resolved using SAOS id/owner parameters. Audit/lifecycle use the returned canonical trans_no; request hashes/retries retain the original reference. Malformed fresh SPP references return 422 VALIDATION_ERROR.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1186,9 +1186,9 @@ const docTemplate = `{
                     ]
                 },
                 "sppNumber": {
-                    "description": "Required for FILLING_SHED_KUIN or CUSTOMER OUT and a returning IN for either SPP departure.",
+                    "description": "Required for SPP-backed IN/OUT. Send the {id}-{owner} reference from the scan/lookup, not the canonical sppNumber from movement/history responses.",
                     "type": "string",
-                    "example": "SPP-001"
+                    "example": "123-example"
                 },
                 "workOrderNumber": {
                     "description": "Required for BENGKEL_LUAR OUT and a returning IN for a BENGKEL_LUAR departure.",
@@ -1238,6 +1238,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "sppNumber": {
+                    "description": "For SPP lookup, echoes the trimmed {id}-{owner} reference to reuse in submit; not the audit trans_no.",
                     "type": "string"
                 },
                 "workOrderNumber": {
@@ -1279,6 +1280,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "sppNumber": {
+                    "description": "For SPP lookup, echoes the trimmed {id}-{owner} reference to reuse in submit; not the audit trans_no.",
                     "type": "string"
                 },
                 "workOrderNumber": {
@@ -1359,6 +1361,7 @@ const docTemplate = `{
                     "x-nullable": "true"
                 },
                 "sppNumber": {
+                    "description": "Canonical SAOS trans_no persisted for audit/lifecycle; do not rebuild request payloads from this value.",
                     "type": "string",
                     "x-nullable": "true"
                 },

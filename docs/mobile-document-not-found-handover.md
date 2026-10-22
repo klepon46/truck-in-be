@@ -63,7 +63,7 @@ HTTP `404`:
 ## Arti Konfirmasi Upstream
 
 - Workshop mengonfirmasi tidak ditemukan melalui HTTP 404 dengan envelope `success:false`, `code:404`, `message:"Work order not found"`, tanpa data dokumen. Halaman 404 generik dari proxy/route bukan bukti WO tidak ada.
-- SAOS V2 menggunakan hasil pencarian sukses. Jika tidak ada `trans_no` yang persis sama, UnitLog mengembalikan `SPP_NOT_FOUND`. Daftar kosong dapat berupa `[]` atau `null` karena producer mengembalikan nil slice saat tidak ada row; field `data` yang hilang atau bertipe salah tetap error integrasi.
+- SAOS V2 kini menerima `id`/`owner` hasil parsing referensi APP `{id}-{owner}`, bukan pencarian `search`. `SPP_NOT_FOUND` hanya untuk hasil sukses kosong (`[]` atau `null`). Hasil yang bertentangan/tidak lengkap ditolak sebagai invalid; field `data` hilang atau bertipe salah tetap error integrasi. Lihat [handover ID/owner](mobile-spp-id-owner-handover.md).
 - `SPP_NOT_FOUND` berarti SPP tidak tersedia pada lookup tersebut; bukan bukti SPP dihapus dari seluruh database. APP tidak perlu meniru parsing upstream atau menghitung alasan sendiri.
 
 ## Pending Retry dan Deployment

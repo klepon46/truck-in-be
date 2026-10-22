@@ -132,6 +132,6 @@
 
 ## Task 23: SPP Reference APP Contract And Verification
 
-- [ ] Update Swagger, PRD, related guides, and standalone APP handover with input-reference versus canonical-audit semantics and deployment/retry limits.
-- [ ] Pass Go tests/vet/build, Docker tests, and review. No live mutations, calls, or configuration changes.
+- [x] Update Swagger, PRD (Draf v1.17 / Confluence version 23, read-back verified), related guides, and standalone APP handover with input-reference versus canonical-audit semantics and deployment/retry limits.
+- [x] Pass Go tests/vet/build, Docker test image, JSON/Swagger checks, disposable PostgreSQL lifecycle/replay test, and correctness/security review. No live integration calls, movements, or configuration changes; no schema/config changes required.
 - Dependencies: Task 22. Preserve unrelated work.

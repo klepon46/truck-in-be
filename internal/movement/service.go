@@ -54,9 +54,10 @@ type LookupDocument struct {
 	NoPolisi        string `json:"noPolisi"`
 	DriverName      string `json:"driverName"`
 	WorkOrderNumber string `json:"workOrderNumber,omitempty"`
-	SPPNumber       string `json:"sppNumber,omitempty"`
-	CustomerID      string `json:"customerId,omitempty"`
-	CustomerName    string `json:"customerName,omitempty"`
+	// For SPP lookup, echoes the trimmed {id}-{owner} reference to reuse in submit; not the audit trans_no.
+	SPPNumber    string `json:"sppNumber,omitempty"`
+	CustomerID   string `json:"customerId,omitempty"`
+	CustomerName string `json:"customerName,omitempty"`
 }
 
 type SPPLookupDocument struct {
@@ -79,16 +80,17 @@ type Transaction struct {
 	DriverID                 *int64    `db:"driver_id" json:"driverId" extensions:"x-nullable=true"`
 	DriverName               *string   `db:"driver_name_snapshot" json:"driverName" extensions:"x-nullable=true"`
 	WorkOrderNumber          *string   `db:"work_order_number" json:"workOrderNumber" extensions:"x-nullable=true"`
-	SPPNumber                *string   `db:"spp_number" json:"sppNumber" extensions:"x-nullable=true"`
-	CustomerID               *string   `db:"customer_id" json:"customerId" extensions:"x-nullable=true"`
-	CustomerName             *string   `db:"customer_name_snapshot" json:"customerName" extensions:"x-nullable=true"`
-	Note                     *string   `db:"note" json:"note" extensions:"x-nullable=true"`
-	Coordinates              *string   `db:"coordinates" json:"coordinates" extensions:"x-nullable=true"`
-	ActorID                  string    `db:"actor_id" json:"actorId"`
-	ActorName                string    `db:"actor_name_snapshot" json:"actorName"`
-	OccurredAt               time.Time `db:"occurred_at" json:"occurredAt"`
-	RequestHash              []byte    `db:"request_hash" json:"-"`
-	LambungUnitID            int64     `db:"lambung_unit_id" json:"lambungUnitId"`
+	// Canonical SAOS trans_no persisted for audit/lifecycle; do not rebuild request payloads from this value.
+	SPPNumber     *string   `db:"spp_number" json:"sppNumber" extensions:"x-nullable=true"`
+	CustomerID    *string   `db:"customer_id" json:"customerId" extensions:"x-nullable=true"`
+	CustomerName  *string   `db:"customer_name_snapshot" json:"customerName" extensions:"x-nullable=true"`
+	Note          *string   `db:"note" json:"note" extensions:"x-nullable=true"`
+	Coordinates   *string   `db:"coordinates" json:"coordinates" extensions:"x-nullable=true"`
+	ActorID       string    `db:"actor_id" json:"actorId"`
+	ActorName     string    `db:"actor_name_snapshot" json:"actorName"`
+	OccurredAt    time.Time `db:"occurred_at" json:"occurredAt"`
+	RequestHash   []byte    `db:"request_hash" json:"-"`
+	LambungUnitID int64     `db:"lambung_unit_id" json:"lambungUnitId"`
 }
 
 type Service struct {

@@ -6,7 +6,7 @@ Use this guide for the satpam movement flow. The app no longer scans a unit QR. 
 
 1. Satpam chooses `IN` or `OUT`.
 2. Satpam chooses **WO**, **SPP**, or **OTHER**.
-3. WO/SPP QR codes contain the raw document number directly (not a URL). After scanning, put that complete value into the document-number field; the satpam then presses **Cek WO** or **Cek SPP** to call the matching UnitLog lookup endpoint. For OTHER, choose a unit and active driver from UnitLog pickers, then enter a note.
+3. WO QR contains the raw WO number; SPP QR contains an `{id}-{owner}` reference such as `123-example` (neither is a URL). After scanning, put that complete value into the document-number field; the satpam then presses **Cek WO** or **Cek SPP** to call the matching UnitLog lookup endpoint. For OTHER, choose a unit and active driver from UnitLog pickers, then enter a note.
 4. Display the populated unit code, police number, and driver. Satpam chooses the IN category or OUT destination as applicable, then confirms.
 5. Submit `POST /api/v1/movements` with a new idempotency key. UnitLog revalidates all selected/scanned data before changing status.
 
@@ -22,7 +22,7 @@ Authorization: Bearer <satpam-access-token>
 ## SPP Lookup
 
 ```http
-GET /api/v1/movement-documents/spp?number=<url-encoded-spp>
+GET /api/v1/movement-documents/spp?number=<url-encoded-id-owner-reference>
 Authorization: Bearer <satpam-access-token>
 ```
 
@@ -47,7 +47,7 @@ An SPP lookup returns `sppNumber` instead of `workOrderNumber`, plus the SAOS `c
     "noLambung": "SAMT072",
     "noPolisi": "DA 8729 CB",
     "driverName": "Driver Name",
-    "sppNumber": "SPG-BJM-2612481",
+    "sppNumber": "123-example",
     "customerId": "C400",
     "customerName": "Customer Name",
     "allowedOutDestinations": ["FILLING_SHED_KUIN"]
@@ -55,7 +55,7 @@ An SPP lookup returns `sppNumber` instead of `workOrderNumber`, plus the SAOS `c
 }
 ```
 
-UnitLog reads SAOS `data` as an array and selects the exact matching `trans_no`. It trims the full requested number and driver name; `customerId` comes from `customer_code`. The unit code and police number must match an active Unit Lambung snapshot. Extra SAOS fields such as capacity, quantity, and `is_marked` do not affect this lookup.
+UnitLog splits the reference on its first hyphen, trims each part, and calls SAOS with separate `id`/`owner` query parameters. Owner case and remaining hyphens are preserved. A consistent SAOS `data[]` resolves to its canonical `trans_no`; identical projections may repeat, conflicting rows are rejected. Eligibility and audit use the canonical number, while lookup `sppNumber` echoes the trimmed reference for APP submit. `customerId` comes from `customer_code`; unit/police still must match the active snapshot. Extra quantity/capacity/`is_marked` fields do not select a document. See [the ID/owner reference handover](mobile-spp-id-owner-handover.md).
 
 For a **new SPP OUT**, show only `allowedOutDestinations` returned by BE. This field is always an array, including `[]` for a valid document with no eligible OUT. A missing field means eligibility is unknown, not that both destinations are allowed. Clear an old destination if it is not present after a new lookup. The array does not restrict IN or authorize changes to a pending retry; see [the SPP eligibility APP handover](mobile-spp-out-eligibility-handover.md).
 
@@ -88,7 +88,7 @@ Every IN/OUT payload may also include one optional string, `coordinates: "-3.319
 }
 ```
 
-For `FILLING_SHED_KUIN` and `CUSTOMER`, submit `sppNumber` instead. Existing status rules still determine whether CUSTOMER is allowed.
+For `FILLING_SHED_KUIN` and `CUSTOMER`, submit `sppNumber: "123-example"` instead. Use the same reference format for SPP-backed IN. Movement/history responses contain canonical `sppNumber`, not the reference; never use them to rebuild a request. Existing status rules still determine whether CUSTOMER is allowed.
 
 ### Filling Shed To Customer Routes
 
@@ -112,6 +112,8 @@ UnitLog records only crossings of the pool boundary; it does not record movement
 
 A returning IN must scan and submit the **same document number and source type** as the unit's open OUT. An OUT with WO requires the same WO; an OUT with SPP requires the same SPP. A different WO/SPP, or OTHER used to bypass a document departure, receives `422 DOCUMENT_VALIDATION_FAILED`.
 
+For SPP, this equality is checked on the canonical `trans_no` resolved from the reference. An existing pre-cutover SPP OUT can return using a new-format reference resolving to the same document; do not rewrite history or guess the reference from a displayed canonical number.
+
 ### OTHER in Either Direction
 
 ```json
@@ -131,7 +133,8 @@ For OUT, replace `inCategory` with `outDestination: "OTHER"`. OTHER must use bot
 
 - `400 INVALID_DOCUMENT_QUERY`: QR/document number is empty or malformed for lookup.
 - `404 WORK_ORDER_NOT_FOUND`: `WO tidak ditemukan di Workshop.` Confirmed by the Workshop response; applies to lookup and fresh IN/OUT submit.
-- `404 SPP_NOT_FOUND`: `SPP tidak ditemukan di SAOS.` A successful SAOS search has no exact document match; applies to lookup and fresh IN/OUT submit.
+- `404 SPP_NOT_FOUND`: `SPP tidak ditemukan di SAOS.` SAOS returned a successful empty/null result for ID/owner; applies to lookup and fresh IN/OUT submit.
+- `422 VALIDATION_ERROR`: a fresh submit SPP reference is malformed (missing delimiter/ID/owner).
 - `404 UNIT_NOT_FOUND`: document vehicle code does not resolve to an active Unit Lambung snapshot.
 - `422 DOCUMENT_VALIDATION_FAILED`: document data is invalid, conflicts with its resolved unit/police data, or an IN document does not match the open OUT.
 - `422 INVALID_TRANSITION`: another movement changed the unit state before submit.

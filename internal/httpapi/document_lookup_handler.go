@@ -43,10 +43,11 @@ func workshopLookupHandler(lookup DocumentLookup) gin.HandlerFunc {
 //
 // @Summary Look up a scanned SPP
 // @Description Returns document data and backend-derived allowedOutDestinations. An empty array prevents a new SPP OUT but does not invalidate a returning-IN lookup. Submit always revalidates current eligibility.
-// @Description Returns 404 SPP_NOT_FOUND when a successful SAOS search has no exact document match, or 404 UNIT_NOT_FOUND for an unresolved document unit. An explicit null SAOS result is an empty producer list; missing/malformed data and integration failures return 500.
+// @Description Accepts an ID-owner reference (123-example), splitting on the first hyphen and encoding SAOS id and owner separately. Echoes the reference as sppNumber for submit, but eligibility uses the canonical SAOS trans_no. Malformed references return 400 INVALID_DOCUMENT_QUERY.
+// @Description Returns 404 SPP_NOT_FOUND for an empty/null successful SAOS result, or 404 UNIT_NOT_FOUND for an unresolved document unit. Conflicting document projections return 422; missing/malformed data and integration failures return 500.
 // @Tags Movements
 // @Produce json
-// @Param number query string true "SPP number"
+// @Param number query string true "SPP reference in {id}-{owner} format, e.g. 123-example; owner may contain hyphens"
 // @Success 200 {object} DataResponse{data=movement.SPPLookupDocument}
 // @Failure 400 {object} APIError
 // @Failure 401 {object} APIError

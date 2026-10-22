@@ -12,7 +12,7 @@ The success response adds **one response-only field**, `allowedOutDestinations`.
     "noLambung": "SAMT119",
     "noPolisi": "DA 1234 AB",
     "driverName": "Driver Name",
-    "sppNumber": "SPP-001",
+    "sppNumber": "123-example",
     "customerId": "C400",
     "customerName": "Customer Name",
     "allowedOutDestinations": ["CUSTOMER"]
@@ -46,6 +46,8 @@ This lookup is shared by IN and OUT. A valid SPP for a unit currently OUT return
 UnitLog records only pool-boundary crossings. A direct `Pool → Filling Shed → Customer → Pool` journey still records one Filling Shed OUT and the returning IN; there is no extra Customer OUT outside the pool.
 
 ## APP Implementation Rules
+
+SPP lookup `number` and movement input `sppNumber` now use `{id}-{owner}`. Lookup echoes the reference; BE resolves canonical `trans_no` for eligibility, persistence, and matching old/new cycles. Movement/history responses contain that canonical number, not a submit reference. See [the ID/owner handover](mobile-spp-id-owner-handover.md); filtering rules below remain unchanged.
 
 1. Add the array to the SPP response DTO, not the movement request DTO. Preserve a distinction between a missing field and a known empty array for compatibility checks.
 2. After **Cek SPP**, populate document data as before. For a new SPP OUT, display only recognized destinations returned in the array; never infer eligibility from cached or historical status.

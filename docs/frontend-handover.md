@@ -205,11 +205,11 @@ Available values:
   "noLambung": "SAMT223",
   "direction": "OUT",
   "outDestination": "FILLING_SHED_KUIN",
-  "sppNumber": "SPP-001"
+  "sppNumber": "123-example"
 }
 ```
 
-`sppNumber` is required. Do not send `workOrderNumber`, `driverId`, or `driverName`. `note` is optional. UnitLog validates the SPP with SAOS and stores the SAOS driver snapshot.
+`sppNumber` is required as `{id}-{owner}`, e.g. `123-example`, for fresh SPP IN/OUT. Do not send `workOrderNumber`, `driverId`, or `driverName`. `note` is optional. UnitLog resolves the reference through SAOS, stores the canonical `trans_no` and SAOS driver snapshot, and uses that canonical number for all lifecycle checks. Lookup `sppNumber` echoes the reference; movement/history `sppNumber` is the canonical audit number. Do not replace pending request values with it. See [the ID/owner APP handover](mobile-spp-id-owner-handover.md).
 
 #### OUT - Customer
 
@@ -218,7 +218,7 @@ Available values:
   "noLambung": "SAMT223",
   "direction": "OUT",
   "outDestination": "CUSTOMER",
-  "sppNumber": "SPP-001"
+  "sppNumber": "123-example"
 }
 ```
 

@@ -25,8 +25,8 @@ type movementRequest struct {
 	OutDestination string `json:"outDestination" enums:"BENGKEL_LUAR,FILLING_SHED_KUIN,CUSTOMER,OTHER"`
 	// Required for BENGKEL_LUAR OUT and a returning IN for a BENGKEL_LUAR departure.
 	WorkOrderNumber string `json:"workOrderNumber" example:"WO-001"`
-	// Required for FILLING_SHED_KUIN or CUSTOMER OUT and a returning IN for either SPP departure.
-	SPPNumber string `json:"sppNumber" example:"SPP-001"`
+	// Required for SPP-backed IN/OUT. Send the {id}-{owner} reference from the scan/lookup, not the canonical sppNumber from movement/history responses.
+	SPPNumber string `json:"sppNumber" example:"123-example"`
 	// Positive ID required for OTHER movements in either direction. Submit-time Driver revalidation is enabled by default and controlled only by server configuration.
 	DriverID int64 `json:"driverId" example:"42"`
 	// Required for OTHER movements in either direction. Stored as a trimmed APP-reported snapshot when the server temporarily disables Driver revalidation.
@@ -43,6 +43,7 @@ type movementRequest struct {
 // @Description Records an IN or OUT transaction after document lookup or unit/driver selection. A returning IN must submit the same WO/SPP as its open OUT; OTHER is required when returning from OTHER. Retries must reuse the same Idempotency-Key and request body.
 // @Description OTHER driver revalidation is enabled by default. The server-only validate_other_driver_on_submit=false testing option skips the Driver call for OTHER IN/OUT, not other movement checks; do not send this option in the request.
 // @Description Fresh document validation returns 404 WORK_ORDER_NOT_FOUND or SPP_NOT_FOUND for confirmed upstream absence. Invalid document data remains 422; integration failures return 500. Stored idempotent replays do not depend on current upstream document availability.
+// @Description SPP input is an ID-owner reference (123-example), split on the first hyphen and resolved using SAOS id/owner parameters. Audit/lifecycle use the returned canonical trans_no; request hashes/retries retain the original reference. Malformed fresh SPP references return 422 VALIDATION_ERROR.
 // @Tags Movements
 // @Accept json
 // @Produce json

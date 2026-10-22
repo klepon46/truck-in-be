@@ -172,6 +172,8 @@ Successful list responses contain `data` and `pagination`. API errors use this s
 
 WO/SPP lookup and fresh movement submit distinguish confirmed absence with `404 WORK_ORDER_NOT_FOUND` / `404 SPP_NOT_FOUND`, separate from `404 UNIT_NOT_FOUND`, invalid-document 422, and integration 500. Android should branch on `error.code`; see [the standalone APP error handover](docs/mobile-document-not-found-handover.md).
 
+New SPP lookup `number` and movement request `sppNumber` use `{id}-{owner}`, e.g. `123-example`. BE calls SAOS with separately encoded `id`/`owner` (not `search`) and resolves canonical `trans_no` for eligibility/audit/lifecycle. Lookup echoes the reference; movement/history responses contain the canonical number. Pending payloads/keys must remain original. This is a coordinated SAOS/BE/APP input-contract cutover, not a database migration; see [the standalone APP ID/owner handover](docs/mobile-spp-id-owner-handover.md).
+
 After startup, open `http://localhost:8105/swagger-ui/index.html`. Use **Authorize** to provide `Bearer <Auth Service JWT>` for protected routes. The generated OpenAPI document is available at `/swagger-ui/doc.json`. Legacy `/swagger/` paths permanently redirect to `/swagger-ui/`.
 
 Regenerate committed Swagger files after changing the HTTP contract:
