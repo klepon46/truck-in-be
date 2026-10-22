@@ -350,7 +350,7 @@ func (testDocuments) Workshop(context.Context, string) (Document, error) {
 }
 
 func (testDocuments) SPP(context.Context, string) (Document, error) {
-	return Document{NoLambung: "SAMT119", NoPolisi: "DA 1234 AB", DriverName: "Driver", CustomerID: "CUST-1", CustomerName: "Customer One"}, nil
+	return Document{SPPNumber: "SPP-001", NoLambung: "SAMT119", NoPolisi: "DA 1234 AB", DriverName: "Driver", CustomerID: "CUST-1", CustomerName: "Customer One"}, nil
 }
 
 func (testDocuments) Driver(context.Context, int64, string) error {

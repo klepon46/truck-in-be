@@ -131,7 +131,7 @@ func TestWorkshopMapsDocumentVehicleAndPoliceDetails(t *testing.T) {
 
 func TestSPPMapsDocumentVehiclePoliceAndCustomerDetails(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/api/v2/loading-orders" || request.URL.Query().Get("search") != "SPP-001" {
+		if request.URL.Path != "/api/v2/loading-orders" || request.URL.Query().Get("id") != "123" || request.URL.Query().Get("owner") != "example" || request.URL.Query().Has("search") {
 			t.Fatalf("request = %s", request.URL.String())
 		}
 		_, _ = writer.Write([]byte(`{
@@ -150,7 +150,7 @@ func TestSPPMapsDocumentVehiclePoliceAndCustomerDetails(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(Config{SAOSBaseURL: server.URL, SAOSToken: "service-token", ConnectTimeout: time.Second, RequestTimeout: time.Second})
-	document, err := client.SPP(context.Background(), "SPP-001")
+	document, err := client.SPP(context.Background(), "123-example")
 	if err != nil {
 		t.Fatalf("SPP() error = %v", err)
 	}

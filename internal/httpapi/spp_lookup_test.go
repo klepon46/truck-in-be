@@ -60,7 +60,7 @@ func TestSPPLookupIntegration(t *testing.T) {
 		{name: "unit not found", response: sppLookupFixture, querySnapshot: true, wantStatus: 404, wantCode: "UNIT_NOT_FOUND"},
 		{name: "police mismatch", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 0000 XX", wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED", wantMessage: "document vehicle or police number does not match Unit Lambung; contact operations to check master data", wantLog: "unit_police_mismatch"},
 		{name: "database failure is not empty eligibility", response: sppLookupFixture, querySnapshot: true, databaseFailure: true, wantStatus: 500, wantCode: "INTERNAL_ERROR"},
-		{name: "no exact match", response: strings.ReplaceAll(sppLookupFixture, "SPG-BJM-2612481", "OTHER-SPP"), wantStatus: 404, wantCode: "SPP_NOT_FOUND", wantLog: "spp_not_found"},
+		{name: "ambiguous response is not absence", response: strings.Replace(sppLookupFixture, `"data":[{`, `"data":[{"trans_no":"OTHER-SPP"},{`, 1), wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED", wantLog: "document_invalid"},
 		{name: "empty array", response: `{"success":true,"data":[]}`, wantStatus: 404, wantCode: "SPP_NOT_FOUND", wantLog: "spp_not_found"},
 		{name: "unsuccessful document", response: `{"success":false,"data":null}`, wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED"},
 		{name: "missing driver", response: strings.ReplaceAll(sppLookupFixture, "JOYO LUMBANRAJA ", " "), wantStatus: 422, wantCode: "DOCUMENT_VALIDATION_FAILED"},
@@ -77,8 +77,8 @@ func TestSPPLookupIntegration(t *testing.T) {
 			slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
 			defer slog.SetDefault(originalLogger)
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Query().Get("search") != "SPG-BJM-2612481" {
-					t.Error("SAOS must receive the complete trimmed number")
+				if r.URL.Query().Get("id") != "123" || r.URL.Query().Get("owner") != "example" || r.URL.Query().Has("search") {
+					t.Error("SAOS must receive separate ID and owner, never the removed search parameter")
 				}
 				if test.upstreamStatus != 0 {
 					w.WriteHeader(test.upstreamStatus)
@@ -114,7 +114,7 @@ func TestSPPLookupIntegration(t *testing.T) {
 				Documents: movement.NewService(sqlx.NewDb(db, "sqlmock"), nil, client),
 				JWTSecret: secret, PermissionClaim: "permissions",
 			})
-			request := httptest.NewRequest(http.MethodGet, "/api/v1/movement-documents/spp?number="+url.QueryEscape("  SPG-BJM-2612481  "), nil)
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/movement-documents/spp?number="+url.QueryEscape("  123-example  "), nil)
 			request.Header.Set("Authorization", "Bearer "+testToken(t, secret, appPermission))
 			response := httptest.NewRecorder()
 			router.ServeHTTP(response, request)
@@ -132,7 +132,7 @@ func TestSPPLookupIntegration(t *testing.T) {
 				t.Fatal(err)
 			}
 			if test.wantStatus == 200 {
-				want := movement.LookupDocument{NoLambung: "SAMT072", NoPolisi: "DA 8729 CB", DriverName: "JOYO LUMBANRAJA", SPPNumber: "SPG-BJM-2612481", CustomerID: "C400", CustomerName: "PT KAPUAS MAJU JAYA"}
+				want := movement.LookupDocument{NoLambung: "SAMT072", NoPolisi: "DA 8729 CB", DriverName: "JOYO LUMBANRAJA", SPPNumber: "123-example", CustomerID: "C400", CustomerName: "PT KAPUAS MAJU JAYA"}
 				wantDestinations := test.wantDestinations
 				if wantDestinations == nil {
 					wantDestinations = []string{movement.OutFillingShed}
@@ -177,7 +177,7 @@ func TestSPPSubmitPreservesUpstreamFailureWithoutMovementWrites(t *testing.T) {
 	client := integration.NewClient(integration.Config{SAOSBaseURL: upstream.URL, RequestTimeout: time.Second})
 	service := movement.NewService(sqlx.NewDb(db, "sqlmock"), nil, client)
 	_, err = service.Record(context.Background(), "96942009-f8c4-4dbf-b7e0-6d571765166a", movement.Input{
-		NoLambung: "SAMT072", Direction: movement.DirectionOut, OutDestination: movement.OutFillingShed, SPPNumber: "SPG-BJM-2612481",
+		NoLambung: "SAMT072", Direction: movement.DirectionOut, OutDestination: movement.OutFillingShed, SPPNumber: "123-example",
 	}, "satpam-id", "Satpam")
 	if !errors.Is(err, movement.ErrIntegrationUnavailable) || errors.Is(err, movement.ErrExternalDocument) {
 		t.Fatalf("Record() must preserve the infrastructure failure: %v", err)
@@ -214,7 +214,7 @@ func TestSPPSubmitRevalidatesPoliceInBothDirections(t *testing.T) {
 			mock.ExpectRollback()
 			client := integration.NewClient(integration.Config{SAOSBaseURL: upstream.URL, RequestTimeout: time.Second})
 			service := movement.NewService(sqlx.NewDb(db, "sqlmock"), nil, client)
-			input := movement.Input{NoLambung: "SAMT072", Direction: direction, SPPNumber: "SPG-BJM-2612481"}
+			input := movement.Input{NoLambung: "SAMT072", Direction: direction, SPPNumber: "123-example"}
 			if direction == movement.DirectionIn {
 				input.InCategory = movement.InWaitingForAssignment
 			} else {

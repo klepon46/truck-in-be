@@ -28,7 +28,7 @@ func TestDocumentErrorsReachAndroidWithoutMovementWrites(t *testing.T) {
 		{"WO absent", "WO", `{"success":false,"code":404,"message":"Work order not found"}`, "WORK_ORDER_NOT_FOUND", "WO tidak ditemukan di Workshop.", "wo_not_found", 404, 404},
 		{"SPP empty", "SPP", `{"success":true,"data":[]}`, "SPP_NOT_FOUND", "SPP tidak ditemukan di SAOS.", "spp_not_found", 200, 404},
 		{"SPP null producer slice", "SPP", `{"success":true,"data":null}`, "SPP_NOT_FOUND", "SPP tidak ditemukan di SAOS.", "spp_not_found", 200, 404},
-		{"SPP no exact match", "SPP", `{"success":true,"data":[{"trans_no":"OTHER-SPP"}]}`, "SPP_NOT_FOUND", "SPP tidak ditemukan di SAOS.", "spp_not_found", 200, 404},
+		{"SPP missing canonical number", "SPP", `{"success":true,"data":[{"trans_no":""}]}`, "DOCUMENT_VALIDATION_FAILED", "", "document_invalid", 200, 422},
 		{"WO bad record", "WO", `{"success":true,"data":{"work_order_number":"DOC/001"}}`, "DOCUMENT_VALIDATION_FAILED", "", "document_invalid", 200, 422},
 		{"SPP bad record", "SPP", `{"success":true,"data":[{"trans_no":"DOC/001"}]}`, "DOCUMENT_VALIDATION_FAILED", "", "document_invalid", 200, 422},
 		{"WO unauthorized", "WO", "private body", "INTERNAL_ERROR", "", "integration_unavailable", 401, 500},
@@ -68,7 +68,7 @@ func TestDocumentErrorsReachAndroidWithoutMovementWrites(t *testing.T) {
 				router := NewRouter(Dependencies{Movement: service, Documents: service, JWTSecret: secret, PermissionClaim: "permissions", ActorIDClaim: "sub", ActorNameClaim: "name"})
 				path := "/api/v1/movement-documents/work-orders?number=DOC%2F001"
 				if test.kind == "SPP" {
-					path = "/api/v1/movement-documents/spp?number=DOC%2F001"
+					path = "/api/v1/movement-documents/spp?number=123-example"
 				}
 				request := httptest.NewRequest(http.MethodGet, path, nil)
 				if action != "lookup" {
@@ -76,7 +76,7 @@ func TestDocumentErrorsReachAndroidWithoutMovementWrites(t *testing.T) {
 					if test.kind == "WO" {
 						body["workOrderNumber"], body["outDestination"] = "DOC/001", movement.OutWorkshop
 					} else {
-						body["sppNumber"], body["outDestination"] = "DOC/001", movement.OutFillingShed
+						body["sppNumber"], body["outDestination"] = "123-example", movement.OutFillingShed
 					}
 					if action == "IN" {
 						delete(body, "outDestination")
@@ -106,7 +106,7 @@ func TestDocumentErrorsReachAndroidWithoutMovementWrites(t *testing.T) {
 				if action == "lookup" && !strings.Contains(logs.String(), `"reason":"`+test.reason+`"`) {
 					t.Fatalf("missing safe reason %s: %s", test.reason, logs.String())
 				}
-				for _, sensitive := range []string{"private-token", "private body", "DOC/001", upstream.URL, token} {
+				for _, sensitive := range []string{"private-token", "private body", "DOC/001", "123-example", upstream.URL, token} {
 					if strings.Contains(logs.String(), sensitive) || strings.Contains(response.Body.String(), sensitive) {
 						t.Error("client error or logs leaked request/upstream data")
 					}

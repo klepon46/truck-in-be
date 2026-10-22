@@ -117,3 +117,21 @@
 - [x] Update Swagger, standalone APP handover, troubleshooting, related handovers, and PRD (Draf v1.16 / Confluence version 22, read-back verified).
 - [x] Pass full Go tests/vet/build, Docker test image, JSON/Swagger contract checks, and correctness/security review; no live mutations or configuration changes. Source contracts were read locally, not verified against deployed upstream instances.
 - Dependencies: Task 19. Preserve unrelated user work.
+
+## Task 21: SPP Reference Parser And Adapter
+
+- [x] Parse `{id}-{owner}` with first-hyphen splitting, trimming, case preservation, separate encoding, and malformed-input rejection.
+- [x] Resolve a canonical `trans_no` from consistent SAOS records; keep not-found/invalid/integration error distinctions and reject ambiguity.
+- Verify: failing-then-passing integration tests. Scope: adapter, domain document field, and integration fixtures/tests.
+
+## Task 22: Canonical SPP Lifecycle With Original Request Replays
+
+- [x] Use canonical SPP for lookup eligibility, return matching, locked submit eligibility, unique reuse checks, audit/cycles/durations; echo reference for lookup/APP submit.
+- [ ] Hash/replay original payload before resolving; prove legacy and new retries/coordinate snapshots survive and conflicting payloads still fail.
+- Verify: movement/HTTP tests plus isolated PostgreSQL end-to-end fixture where available. Dependencies: Task 21.
+
+## Task 23: SPP Reference APP Contract And Verification
+
+- [ ] Update Swagger, PRD, related guides, and standalone APP handover with input-reference versus canonical-audit semantics and deployment/retry limits.
+- [ ] Pass Go tests/vet/build, Docker tests, and review. No live mutations, calls, or configuration changes.
+- Dependencies: Task 22. Preserve unrelated work.

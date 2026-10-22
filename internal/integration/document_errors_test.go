@@ -36,7 +36,7 @@ func TestDocumentAbsenceClassification(t *testing.T) {
 		{"WO service failure", "WO", workshopNotFoundResponse, 500, movement.ErrIntegrationUnavailable},
 		{"SPP empty list", "SPP", `{"success":true,"data":[]}`, 200, movement.ErrSPPNotFound},
 		{"SPP nil producer slice", "SPP", `{"success":true,"message":"Success","code":200,"data":null}`, 200, movement.ErrSPPNotFound},
-		{"SPP no exact match", "SPP", `{"success":true,"data":[{"trans_no":"DOC/0010"}]}`, 200, movement.ErrSPPNotFound},
+		{"SPP missing canonical identity", "SPP", `{"success":true,"data":[{"trans_no":""}]}`, 200, movement.ErrExternalDocument},
 		{"SPP unsuccessful envelope", "SPP", `{"success":false,"data":null}`, 200, movement.ErrExternalDocument},
 		{"SPP incomplete record", "SPP", `{"success":true,"data":[{"trans_no":"DOC/001","driver_name":" "}]}`, 200, movement.ErrExternalDocument},
 		{"SPP missing data", "SPP", `{"success":true}`, 200, movement.ErrIntegrationUnavailable},
@@ -48,11 +48,11 @@ func TestDocumentAbsenceClassification(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				query := "wo-number"
 				if test.kind == "SPP" {
-					query = "search"
-				}
-				if r.URL.Query().Get(query) != "DOC/001" {
+					if r.URL.Query().Get("id") != "123" || r.URL.Query().Get("owner") != "example" || r.URL.Query().Has("search") {
+						t.Error("SPP must use ID and owner")
+					}
+				} else if r.URL.Query().Get("wo-number") != "DOC/001" {
 					t.Error("document number must remain complete and trimmed")
 				}
 				w.WriteHeader(test.status)
@@ -61,10 +61,12 @@ func TestDocumentAbsenceClassification(t *testing.T) {
 			defer upstream.Close()
 			client := NewClient(Config{WorkshopBaseURL: upstream.URL, SAOSBaseURL: upstream.URL, WorkshopToken: "private-token", SAOSToken: "private-token", RequestTimeout: time.Second})
 			lookup := client.Workshop
+			number := "  DOC/001  "
 			if test.kind == "SPP" {
 				lookup = client.SPP
+				number = "123-example"
 			}
-			_, err := lookup(context.Background(), "  DOC/001  ")
+			_, err := lookup(context.Background(), number)
 			if !errors.Is(err, test.want) {
 				t.Fatalf("error = %v, want %v", err, test.want)
 			}

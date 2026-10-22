@@ -81,6 +81,8 @@ func documentLookupHandler(lookup DocumentLookup, documentType string, find func
 		// Only log allowlisted reasons; never log upstream bodies or personal data.
 		reason := "internal_error"
 		switch {
+		case errors.Is(err, movement.ErrInvalidInput):
+			reason = "invalid_document_query"
 		case errors.Is(err, movement.ErrIntegrationUnavailable):
 			reason = "integration_unavailable"
 		case errors.Is(err, movement.ErrWorkOrderNotFound):

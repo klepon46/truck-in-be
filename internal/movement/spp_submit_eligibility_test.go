@@ -78,7 +78,7 @@ func TestSPPSubmitAppliesSharedEligibilityUnderLock(t *testing.T) {
 			}
 			mock.ExpectRollback()
 			_, err = NewService(sqlx.NewDb(db, "sqlmock"), nil, testDocuments{}).Record(context.Background(), "96942009-f8c4-4dbf-b7e0-6d571765166a", Input{
-				NoLambung: "SAMT119", Direction: DirectionOut, OutDestination: test.destination, SPPNumber: "SPP-001",
+				NoLambung: "SAMT119", Direction: DirectionOut, OutDestination: test.destination, SPPNumber: "123-example",
 			}, "12", "Satpam")
 			if !errors.Is(err, test.want) {
 				t.Fatalf("submit eligibility error = %v, want %v", err, test.want)
@@ -122,6 +122,11 @@ func TestSPPSubmitStillStartsCycleForEligibleCustomer(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
+	input := Input{NoLambung: "SAMT119", Direction: DirectionOut, OutDestination: OutCustomer, SPPNumber: "123-example"}
+	hash, err := requestHash(input)
+	if err != nil {
+		t.Fatal(err)
+	}
 	mock.ExpectQuery("SELECT m.transaction_id").WillReturnRows(sqlmock.NewRows(transactionCycleColumns))
 	mock.ExpectBegin()
 	mock.ExpectQuery("SELECT u.lambung_unit_id").WithArgs("SAMT119").
@@ -131,7 +136,7 @@ func TestSPPSubmitStillStartsCycleForEligibleCustomer(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(sppEligibilityQuery)).WithArgs("SAMT119", "SPP-001").
 		WillReturnRows(sqlmock.NewRows(sppStateColumns).AddRow(7, "SAMT119", "DA 1234 AB", 20, "IN", InWaitingForDelivery, "SPP-001", "CUST-1", true, false))
 	mock.ExpectQuery("INSERT INTO movement_transactions").
-		WithArgs("96942009-f8c4-4dbf-b7e0-6d571765166a", sqlmock.AnyArg(), int64(7), "SAMT119", "DA 1234 AB",
+		WithArgs("96942009-f8c4-4dbf-b7e0-6d571765166a", hash, int64(7), "SAMT119", "DA 1234 AB",
 			DirectionOut, "", OutCustomer, int64(0), "Driver", "", "SPP-001", "CUST-1", "Customer One", "", "12", "Satpam", "").
 		WillReturnRows(sqlmock.NewRows(transactionColumns).AddRow(21, []byte("stored-hash"), 7, "SAMT119", "DA 1234 AB", "OUT", nil, OutCustomer, nil, "Driver", nil, "SPP-001", "CUST-1", "Customer One", nil, "12", "Satpam", time.Now(), nil))
 	mock.ExpectQuery("INSERT INTO movement_cycles").WithArgs(int64(7), int64(21)).
@@ -139,9 +144,7 @@ func TestSPPSubmitStillStartsCycleForEligibleCustomer(t *testing.T) {
 	mock.ExpectExec("INSERT INTO movement_status_durations").WithArgs(int64(20)).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("UPDATE unit_snapshot SET current_transaction_id").WithArgs(int64(21), int64(7)).WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
-	result, err := NewService(sqlx.NewDb(db, "sqlmock"), nil, testDocuments{}).Record(context.Background(), "96942009-f8c4-4dbf-b7e0-6d571765166a", Input{
-		NoLambung: "SAMT119", Direction: DirectionOut, OutDestination: OutCustomer, SPPNumber: "SPP-001",
-	}, "12", "Satpam")
+	result, err := NewService(sqlx.NewDb(db, "sqlmock"), nil, testDocuments{}).Record(context.Background(), "96942009-f8c4-4dbf-b7e0-6d571765166a", input, "12", "Satpam")
 	if err != nil || result.CycleID == nil || *result.CycleID != 92 || result.DepartureSPPNumber == nil || *result.DepartureSPPNumber != "SPP-001" {
 		t.Fatalf("eligible Customer submit failed: %v", err)
 	}

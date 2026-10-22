@@ -78,3 +78,9 @@ No migration is required. Main risks are deriving active SPP from unrelated old 
 1. Add document-specific domain errors and regression tests for the verified upstream source contracts. Decode Workshop's explicit 404 envelope only on that integration path; separate genuine absence from malformed/invalid/infrastructure failures. Accept SAOS's explicit null empty result while rejecting an omitted data field.
 2. Preserve the typed failures through lookup and fresh submit, expose 404 codes/messages to Android, and add safe log reasons. Verify all directions, replay, no movement writes on failure, and unchanged Driver/Unit Lambung behavior.
 3. Update Swagger and a standalone APP handover plus affected guides/PRD. Run full Go test/vet/build and Docker tests; no live calls, configuration edits, migrations, or movements.
+
+## Approved Extension: SPP ID/Owner Reference Resolution
+
+1. Test the new query parsing and canonical response mapping against the verified producer contract; fail closed on inconsistent rows. Preserve not-found/integration distinctions and safe diagnostics.
+2. Carry the canonical SPP through lookup eligibility and fresh movement validation/persistence, while hashing and replaying the original reference payload. Verify existing cycles, duplicate guards, both directions, and legacy replay without audit edits.
+3. Align older contract fixtures, Swagger, PRD, and APP guides; publish a standalone ID/owner handover. Run Go tests/vet/build, Docker tests, and isolated database checks if needed. Do not modify live services.

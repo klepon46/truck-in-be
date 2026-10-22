@@ -44,11 +44,11 @@ func TestSPPLookupReportsEligibilityWithoutBlockingIN(t *testing.T) {
 			}
 			mock.ExpectQuery(regexp.QuoteMeta(sppEligibilityQuery)).WithArgs("SAMT119", "SPP-001").
 				WillReturnRows(sqlmock.NewRows(sppStateColumns).AddRow(7, "SAMT119", "DA 1234 AB", currentID, test.direction, test.category, test.activeSPP, test.activeCustomer, test.used, test.completed))
-			result, err := NewService(sqlx.NewDb(db, "sqlmock"), nil, testDocuments{}).LookupSPP(context.Background(), " SPP-001 ")
+			result, err := NewService(sqlx.NewDb(db, "sqlmock"), nil, testDocuments{}).LookupSPP(context.Background(), " 123-example ")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if result.SPPNumber != "SPP-001" || result.NoLambung != "SAMT119" || result.DriverName != "Driver" {
+			if result.SPPNumber != "123-example" || result.NoLambung != "SAMT119" || result.DriverName != "Driver" {
 				t.Fatal("OUT eligibility changed the valid document lookup")
 			}
 			if !reflect.DeepEqual(result.AllowedOutDestinations, test.want) {

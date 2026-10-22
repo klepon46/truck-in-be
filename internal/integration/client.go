@@ -86,12 +86,19 @@ func (c *Client) Workshop(ctx context.Context, number string) (movement.Document
 }
 
 func (c *Client) SPP(ctx context.Context, number string) (movement.Document, error) {
-	number = strings.TrimSpace(number)
+	id, owner, found := strings.Cut(strings.TrimSpace(number), "-")
+	id, owner = strings.TrimSpace(id), strings.TrimSpace(owner)
+	if !found || id == "" || owner == "" {
+		return movement.Document{}, movement.ErrInvalidInput
+	}
+	query := url.Values{}
+	query.Set("id", id)
+	query.Set("owner", owner)
 	var response struct {
 		Success *bool           `json:"success"`
 		Data    json.RawMessage `json:"data"`
 	}
-	if err := c.getJSON(ctx, c.config.SAOSBaseURL, c.config.SAOSToken, "/api/v2/loading-orders?search="+url.QueryEscape(number), &response); err != nil {
+	if err := c.getJSON(ctx, c.config.SAOSBaseURL, c.config.SAOSToken, "/api/v2/loading-orders?"+query.Encode(), &response); err != nil {
 		// getJSON returns only sanitized failure reasons, never a URL, token, or body.
 		slog.ErrorContext(ctx, "SPP upstream lookup failed", "error", err)
 		return movement.Document{}, fmt.Errorf("%w: SAOS lookup: %w", movement.ErrIntegrationUnavailable, err)
@@ -120,25 +127,33 @@ func (c *Client) SPP(ctx context.Context, number string) (movement.Document, err
 	if err := json.Unmarshal(response.Data, &records); err != nil {
 		return movement.Document{}, fmt.Errorf("%w: SAOS returned an invalid data array", movement.ErrIntegrationUnavailable)
 	}
-	for _, record := range records {
-		if record.Number == number {
-			document := movement.Document{
-				NoLambung:    strings.ToUpper(strings.TrimSpace(record.VehicleNo)),
-				NoPolisi:     strings.ToUpper(strings.TrimSpace(record.PoliceNo)),
-				DriverName:   strings.TrimSpace(record.DriverName),
-				CustomerID:   strings.TrimSpace(record.CustomerID),
-				CustomerName: strings.TrimSpace(record.CustomerName),
-			}
-			if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" {
-				slog.WarnContext(ctx, "SPP document rejected", "reason", "missing_required_fields",
-					"missing_unit", document.NoLambung == "", "missing_police", document.NoPolisi == "", "missing_driver", document.DriverName == "")
-				return movement.Document{}, movement.ErrExternalDocument
-			}
-			return document, nil
-		}
+	if len(records) == 0 {
+		slog.WarnContext(ctx, "SPP document not found", "reason", "empty_result")
+		return movement.Document{}, movement.ErrSPPNotFound
 	}
-	slog.WarnContext(ctx, "SPP document rejected", "reason", "no_matching_trans_no")
-	return movement.Document{}, movement.ErrSPPNotFound
+	var document movement.Document
+	for index, record := range records {
+		candidate := movement.Document{
+			SPPNumber:    strings.TrimSpace(record.Number),
+			NoLambung:    strings.ToUpper(strings.TrimSpace(record.VehicleNo)),
+			NoPolisi:     strings.ToUpper(strings.TrimSpace(record.PoliceNo)),
+			DriverName:   strings.TrimSpace(record.DriverName),
+			CustomerID:   strings.TrimSpace(record.CustomerID),
+			CustomerName: strings.TrimSpace(record.CustomerName),
+		}
+		if candidate.SPPNumber == "" || candidate.NoLambung == "" || candidate.NoPolisi == "" || candidate.DriverName == "" {
+			slog.WarnContext(ctx, "SPP document rejected", "reason", "missing_required_fields",
+				"missing_number", candidate.SPPNumber == "", "missing_unit", candidate.NoLambung == "", "missing_police", candidate.NoPolisi == "", "missing_driver", candidate.DriverName == "")
+			return movement.Document{}, movement.ErrExternalDocument
+		}
+		// The producer may repeat rows for sales-order batches; never guess among conflicting documents.
+		if index > 0 && document != candidate {
+			slog.WarnContext(ctx, "SPP document rejected", "reason", "ambiguous_reference_result")
+			return movement.Document{}, movement.ErrExternalDocument
+		}
+		document = candidate
+	}
+	return document, nil
 }
 
 type ActiveDriver struct {

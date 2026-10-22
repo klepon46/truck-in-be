@@ -40,6 +40,8 @@ type Documents interface {
 }
 
 type Document struct {
+	// Canonical upstream trans_no; never the APP's ID/owner lookup reference.
+	SPPNumber    string
 	NoLambung    string
 	NoPolisi     string
 	DriverName   string
@@ -132,15 +134,18 @@ func (s *Service) LookupSPP(ctx context.Context, number string) (SPPLookupDocume
 	}
 	document, err := s.documents.SPP(ctx, number)
 	if err != nil {
-		if errors.Is(err, ErrIntegrationUnavailable) || errors.Is(err, ErrSPPNotFound) {
+		if errors.Is(err, ErrInvalidInput) || errors.Is(err, ErrIntegrationUnavailable) || errors.Is(err, ErrSPPNotFound) {
 			return SPPLookupDocument{}, err
 		}
 		return SPPLookupDocument{}, errors.Join(ErrExternalDocument, err)
 	}
+	if document.SPPNumber == "" {
+		return SPPLookupDocument{}, ErrExternalDocument
+	}
 	if err := s.prepareDocumentUnit(ctx, document); err != nil {
 		return SPPLookupDocument{}, err
 	}
-	state, err := readSPPState(ctx, s.db, document.NoLambung, number)
+	state, err := readSPPState(ctx, s.db, document.NoLambung, document.SPPNumber)
 	if err != nil {
 		return SPPLookupDocument{}, err
 	}
@@ -152,7 +157,7 @@ func (s *Service) LookupSPP(ctx context.Context, number string) (SPPLookupDocume
 			NoLambung: state.NoLambung, NoPolisi: state.NoPolisi, DriverName: document.DriverName,
 			SPPNumber: number, CustomerID: document.CustomerID, CustomerName: document.CustomerName,
 		},
-		AllowedOutDestinations: allowedSPPOutDestinations(state, number, document),
+		AllowedOutDestinations: allowedSPPOutDestinations(state, document.SPPNumber, document),
 	}, nil
 }
 
@@ -213,6 +218,10 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 	document, err := s.validateDocument(ctx, &input)
 	if err != nil {
 		return Transaction{}, fmt.Errorf("validate movement document: %w", err)
+	}
+	if input.SPPNumber != "" {
+		// Hash/replay use the original APP reference; audit and lifecycle use the resolved trans_no.
+		input.SPPNumber = document.SPPNumber
 	}
 
 	tx, err := s.db.BeginTxx(ctx, nil)
@@ -362,12 +371,12 @@ func (s *Service) validateDocument(ctx context.Context, input *Input) (Document,
 	case input.SPPNumber != "":
 		document, err := s.documents.SPP(ctx, input.SPPNumber)
 		if err != nil {
-			if errors.Is(err, ErrIntegrationUnavailable) || errors.Is(err, ErrSPPNotFound) {
+			if errors.Is(err, ErrInvalidInput) || errors.Is(err, ErrIntegrationUnavailable) || errors.Is(err, ErrSPPNotFound) {
 				return Document{}, fmt.Errorf("validate SPP document: %w", err)
 			}
 			return Document{}, errors.Join(ErrExternalDocument, fmt.Errorf("validate SPP document: %w", err))
 		}
-		if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" || !strings.EqualFold(document.NoLambung, input.NoLambung) {
+		if document.SPPNumber == "" || document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" || !strings.EqualFold(document.NoLambung, input.NoLambung) {
 			return Document{}, ErrExternalDocument
 		}
 		return document, nil
