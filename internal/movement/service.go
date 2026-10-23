@@ -24,6 +24,7 @@ var (
 	ErrSPPMismatch            = errors.New("SPP does not match the active SPP")
 	ErrCustomerMismatch       = errors.New("customer does not match the active SPP")
 	ErrExternalDocument       = errors.New("external document is invalid")
+	ErrSPPUnitMissing         = errors.New("SPP unit code is missing from SAOS data")
 	ErrIntegrationUnavailable = errors.New("document integration is unavailable")
 	ErrDocumentUnitMismatch   = errors.New("document vehicle or police number does not match Unit Lambung")
 	ErrReturnDocumentMismatch = errors.New("arrival document does not match the departure")

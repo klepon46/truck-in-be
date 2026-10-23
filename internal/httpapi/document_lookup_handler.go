@@ -109,6 +109,8 @@ func documentLookupHandler(lookup DocumentLookup, documentType string, find func
 			apiError(c, http.StatusNotFound, "UNIT_NOT_FOUND", "document unit was not found")
 		case errors.Is(err, movement.ErrDocumentUnitMismatch):
 			apiError(c, http.StatusUnprocessableEntity, "DOCUMENT_VALIDATION_FAILED", "document vehicle or police number does not match Unit Lambung; contact operations to check master data")
+		case errors.Is(err, movement.ErrSPPUnitMissing):
+			apiError(c, http.StatusUnprocessableEntity, "DOCUMENT_VALIDATION_FAILED", "Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.")
 		case errors.Is(err, movement.ErrExternalDocument):
 			apiError(c, http.StatusUnprocessableEntity, "DOCUMENT_VALIDATION_FAILED", "movement document is invalid")
 		default:

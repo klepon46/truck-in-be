@@ -144,6 +144,9 @@ func (c *Client) SPP(ctx context.Context, number string) (movement.Document, err
 		if candidate.SPPNumber == "" || candidate.NoLambung == "" || candidate.NoPolisi == "" || candidate.DriverName == "" {
 			slog.WarnContext(ctx, "SPP document rejected", "reason", "missing_required_fields",
 				"missing_number", candidate.SPPNumber == "", "missing_unit", candidate.NoLambung == "", "missing_police", candidate.NoPolisi == "", "missing_driver", candidate.DriverName == "")
+			if candidate.NoLambung == "" {
+				return movement.Document{}, errors.Join(movement.ErrExternalDocument, movement.ErrSPPUnitMissing)
+			}
 			return movement.Document{}, movement.ErrExternalDocument
 		}
 		// The producer may repeat rows for sales-order batches; never guess among conflicting documents.

@@ -135,3 +135,10 @@
 - [x] Update Swagger, PRD (Draf v1.17 / Confluence version 23, read-back verified), related guides, and standalone APP handover with input-reference versus canonical-audit semantics and deployment/retry limits.
 - [x] Pass Go tests/vet/build, Docker test image, JSON/Swagger checks, disposable PostgreSQL lifecycle/replay test, and correctness/security review. No live integration calls, movements, or configuration changes; no schema/config changes required.
 - Dependencies: Task 22. Preserve unrelated work.
+
+## Task 24: Specific Missing SPP Unit Message
+
+- [x] Preserve an internal missing-SPP-unit cause and expose the approved message on lookup and submit IN/OUT, retaining 422/code and strict rejection.
+- [x] Test missing/null/blank/whitespace unit codes and negative cases; pass full tests/vet/build and review without live writes (12 new missing-unit HTTP cases, generic other-field/WO checks, and existing master-unit regressions).
+- [ ] Update Swagger, PRD, and APP guidance; do not alter upstream queries or master data.
+- Verify: focused HTTP/integration regressions followed by `go test ./... -count=1`, `go vet ./...`, and `go build ./...`.

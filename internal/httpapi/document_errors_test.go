@@ -28,8 +28,14 @@ func TestDocumentErrorsReachAndroidWithoutMovementWrites(t *testing.T) {
 		{"WO absent", "WO", `{"success":false,"code":404,"message":"Work order not found"}`, "WORK_ORDER_NOT_FOUND", "WO tidak ditemukan di Workshop.", "wo_not_found", 404, 404},
 		{"SPP empty", "SPP", `{"success":true,"data":[]}`, "SPP_NOT_FOUND", "SPP tidak ditemukan di SAOS.", "spp_not_found", 200, 404},
 		{"SPP null producer slice", "SPP", `{"success":true,"data":null}`, "SPP_NOT_FOUND", "SPP tidak ditemukan di SAOS.", "spp_not_found", 200, 404},
-		{"SPP missing canonical number", "SPP", `{"success":true,"data":[{"trans_no":""}]}`, "DOCUMENT_VALIDATION_FAILED", "", "document_invalid", 200, 422},
-		{"WO bad record", "WO", `{"success":true,"data":{"work_order_number":"DOC/001"}}`, "DOCUMENT_VALIDATION_FAILED", "", "document_invalid", 200, 422},
+		{"SPP missing canonical number", "SPP", strings.ReplaceAll(sppLookupFixture, "SPG-BJM-2612481", ""), "DOCUMENT_VALIDATION_FAILED", "movement document is invalid", "document_invalid", 200, 422},
+		{"WO bad record", "WO", `{"success":true,"data":{"work_order_number":"DOC/001"}}`, "DOCUMENT_VALIDATION_FAILED", "movement document is invalid", "document_invalid", 200, 422},
+		{"SPP missing unit field", "SPP", strings.ReplaceAll(sppLookupFixture, `"unit_name":"SAMT072",`, ""), "DOCUMENT_VALIDATION_FAILED", "Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.", "document_invalid", 200, 422},
+		{"SPP null unit", "SPP", strings.ReplaceAll(sppLookupFixture, `"unit_name":"SAMT072"`, `"unit_name":null`), "DOCUMENT_VALIDATION_FAILED", "Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.", "document_invalid", 200, 422},
+		{"SPP blank unit", "SPP", strings.ReplaceAll(sppLookupFixture, "SAMT072", ""), "DOCUMENT_VALIDATION_FAILED", "Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.", "document_invalid", 200, 422},
+		{"SPP whitespace unit", "SPP", strings.ReplaceAll(sppLookupFixture, "SAMT072", "  "), "DOCUMENT_VALIDATION_FAILED", "Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.", "document_invalid", 200, 422},
+		{"SPP missing driver only", "SPP", strings.ReplaceAll(sppLookupFixture, "JOYO LUMBANRAJA ", ""), "DOCUMENT_VALIDATION_FAILED", "movement document is invalid", "document_invalid", 200, 422},
+		{"SPP missing police only", "SPP", strings.ReplaceAll(sppLookupFixture, "DA 8729 CB", ""), "DOCUMENT_VALIDATION_FAILED", "movement document is invalid", "document_invalid", 200, 422},
 		{"SPP bad record", "SPP", `{"success":true,"data":[{"trans_no":"DOC/001"}]}`, "DOCUMENT_VALIDATION_FAILED", "", "document_invalid", 200, 422},
 		{"WO unauthorized", "WO", "private body", "INTERNAL_ERROR", "", "integration_unavailable", 401, 500},
 		{"SPP unauthorized", "SPP", "private body", "INTERNAL_ERROR", "", "integration_unavailable", 401, 500},
@@ -106,7 +112,7 @@ func TestDocumentErrorsReachAndroidWithoutMovementWrites(t *testing.T) {
 				if action == "lookup" && !strings.Contains(logs.String(), `"reason":"`+test.reason+`"`) {
 					t.Fatalf("missing safe reason %s: %s", test.reason, logs.String())
 				}
-				for _, sensitive := range []string{"private-token", "private body", "DOC/001", "123-example", upstream.URL, token} {
+				for _, sensitive := range []string{"private-token", "private body", "DOC/001", "123-example", "JOYO LUMBANRAJA", "PT KAPUAS MAJU JAYA", upstream.URL, token} {
 					if strings.Contains(logs.String(), sensitive) || strings.Contains(response.Body.String(), sensitive) {
 						t.Error("client error or logs leaked request/upstream data")
 					}
