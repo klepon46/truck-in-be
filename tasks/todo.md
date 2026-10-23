@@ -140,5 +140,5 @@
 
 - [x] Preserve an internal missing-SPP-unit cause and expose the approved message on lookup and submit IN/OUT, retaining 422/code and strict rejection.
 - [x] Test missing/null/blank/whitespace unit codes and negative cases; pass full tests/vet/build and review without live writes (12 new missing-unit HTTP cases, generic other-field/WO checks, and existing master-unit regressions).
-- [ ] Update Swagger, PRD, and APP guidance; do not alter upstream queries or master data.
+- [x] Update Swagger, PRD (Draf v1.18 / Confluence version 24, read-back verified), and APP guidance; upstream queries/master data remain unchanged. Docker test image and exact-message Swagger checks also passed.
 - Verify: focused HTTP/integration regressions followed by `go test ./... -count=1`, `go vet ./...`, and `go build ./...`.

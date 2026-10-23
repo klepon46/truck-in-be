@@ -62,6 +62,8 @@ HTTP `404`:
 
 ## Arti Konfirmasi Upstream
 
+Jika `unit_name` pada record SAOS hilang/null/kosong/whitespace-only, lookup dan submit SPP IN/OUT tetap menghasilkan `422 DOCUMENT_VALIDATION_FAILED`, tetapi pesan spesifiknya: **Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.** Ini bukan `404 UNIT_NOT_FOUND` ataupun `SPP_NOT_FOUND`. APP cukup menampilkan `error.message` dari BE, tidak mem-parsing teks atau menimpa semua 422 dengan pesan generik. Validasi tetap ketat dan tidak ada fallback polisi/picker.
+
 - Workshop mengonfirmasi tidak ditemukan melalui HTTP 404 dengan envelope `success:false`, `code:404`, `message:"Work order not found"`, tanpa data dokumen. Halaman 404 generik dari proxy/route bukan bukti WO tidak ada.
 - SAOS V2 kini menerima `id`/`owner` hasil parsing referensi APP `{id}-{owner}`, bukan pencarian `search`. `SPP_NOT_FOUND` hanya untuk hasil sukses kosong (`[]` atau `null`). Hasil yang bertentangan/tidak lengkap ditolak sebagai invalid; field `data` hilang atau bertipe salah tetap error integrasi. Lihat [handover ID/owner](mobile-spp-id-owner-handover.md).
 - `SPP_NOT_FOUND` berarti SPP tidak tersedia pada lookup tersebut; bukan bukti SPP dihapus dari seluruh database. APP tidak perlu meniru parsing upstream atau menghitung alasan sendiri.

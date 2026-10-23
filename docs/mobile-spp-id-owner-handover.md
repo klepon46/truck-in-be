@@ -87,11 +87,14 @@ Pilihan OUT tetap hanya dari `allowedOutDestinations`. `[]` bukan kegagalan look
 | Referensi tanpa delimiter, ID kosong, atau owner kosong pada lookup | `400 INVALID_DOCUMENT_QUERY` |
 | Format referensi salah pada submit baru | `422 VALIDATION_ERROR` |
 | Hasil sukses SAOS kosong (`[]`/`null`) | `404 SPP_NOT_FOUND`, pesan `SPP tidak ditemukan di SAOS.` |
+| `unit_name` SAOS hilang, null, kosong, atau hanya spasi | `422 DOCUMENT_VALIDATION_FAILED`, pesan `Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.` |
 | Dokumen tidak lengkap atau hasil ID/owner bertentangan | `422 DOCUMENT_VALIDATION_FAILED` |
 | Unit/polisi/return/customer/lifecycle tidak cocok | Error validasi yang sudah berlaku; jangan bypass |
 | Autentikasi/service upstream, network, atau envelope malformed | `500 INTERNAL_ERROR`, bukan dokumen tidak ditemukan |
 
 Tetap cabangkan perilaku menggunakan `error.code`. `404 UNIT_NOT_FOUND` adalah masalah unit, bukan dokumen. Saat nomor diubah/lookup gagal, bersihkan hasil lookup/selection lama untuk form baru dan abaikan respons asynchronous usang.
+
+Untuk `DOCUMENT_VALIDATION_FAILED`, tampilkan pesan aman BE, jangan selalu menimpanya dengan pesan generik atau mencocokkan teks untuk percabangan. Pesan kode Unit Lambung tidak tersedia berlaku pada lookup dan submit SPP IN/OUT, bukan berarti unit pasti tidak ada di master Unit Lambung. Validasi tetap menolak; jangan memilih unit manual atau memakai nomor polisi sebagai fallback. Payload dan kode error tidak berubah.
 
 ## 5. Retry, Migrasi, dan Deployment
 

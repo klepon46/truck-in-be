@@ -44,6 +44,7 @@ type movementRequest struct {
 // @Description OTHER driver revalidation is enabled by default. The server-only validate_other_driver_on_submit=false testing option skips the Driver call for OTHER IN/OUT, not other movement checks; do not send this option in the request.
 // @Description Fresh document validation returns 404 WORK_ORDER_NOT_FOUND or SPP_NOT_FOUND for confirmed upstream absence. Invalid document data remains 422; integration failures return 500. Stored idempotent replays do not depend on current upstream document availability.
 // @Description SPP input is an ID-owner reference (123-example), split on the first hyphen and resolved using SAOS id/owner parameters. Audit/lifecycle use the returned canonical trans_no; request hashes/retries retain the original reference. Malformed fresh SPP references return 422 VALIDATION_ERROR.
+// @Description A missing/null/blank SAOS unit_name returns 422 DOCUMENT_VALIDATION_FAILED with: Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit. Other document errors keep their existing messages.
 // @Tags Movements
 // @Accept json
 // @Produce json

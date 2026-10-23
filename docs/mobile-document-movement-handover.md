@@ -142,6 +142,8 @@ For OUT, replace `inCategory` with `outDestination: "OTHER"`. OTHER must use bot
 
 For a unit/police mismatch, the validation message asks operations to check master data; never override the resolved unit or bypass this validation. Keep the stable HTTP status/code as the app contract rather than matching error-message text. See [SPP lookup troubleshooting](spp-lookup-troubleshooting.md) for backend diagnostics.
 
+For missing/null/blank SAOS `unit_name`, lookup and SPP IN/OUT submit use `422 DOCUMENT_VALIDATION_FAILED` with `Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.` Display that safe message rather than replacing it with a generic error. It is not a missing-master `404 UNIT_NOT_FOUND`; validation remains strict.
+
 The dedicated [WO/SPP not-found APP handover](mobile-document-not-found-handover.md) includes full error bodies, UI behavior, and pending retry rules. Do not interpret every 404 as a missing WO/SPP: `UNIT_NOT_FOUND` is a separate master-unit issue.
 
 ## Client Rules

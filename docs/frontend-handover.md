@@ -291,6 +291,8 @@ Clients must not send any cycle or departure fields in a movement request. See [
 | 422 | `VALIDATION_ERROR`, `INVALID_TRANSITION`, `DOCUMENT_VALIDATION_FAILED` | Show a contextual form/status validation message. |
 | 500 | `INTERNAL_ERROR` | Show a retryable service failure without exposing details. |
 
+For `422 DOCUMENT_VALIDATION_FAILED`, display the safe backend `error.message` instead of overriding every case with generic text. Missing/null/blank/whitespace-only SAOS `unit_name` now yields `Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.` on lookup and SPP IN/OUT submit. This remains a rejected document, not `404 UNIT_NOT_FOUND`; request payloads and public error codes are unchanged, and other missing fields/WO errors retain their messages.
+
 ## Web Operations APIs
 
 All web operations routes require `unitlog:web:default:view`.
