@@ -154,7 +154,7 @@ func TestSPPMapsDocumentVehiclePoliceAndCustomerDetails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SPP() error = %v", err)
 	}
-	if document.NoLambung != "A122" || document.NoPolisi != "DA 122 A" || document.DriverName != "SPP Driver" || document.CustomerID != "CUST-1" || document.CustomerName != "Customer One" {
+	if document.NoLambung != "A122" || document.NoPolisi != "" || document.DriverName != "SPP Driver" || document.CustomerID != "CUST-1" || document.CustomerName != "Customer One" {
 		t.Fatalf("SPP() = %#v", document)
 	}
 }

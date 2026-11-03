@@ -20,6 +20,7 @@ type canonicalDocuments struct {
 func (d canonicalDocuments) SPP(ctx context.Context, _ string) (Document, error) {
 	document, err := d.testDocuments.SPP(ctx, "")
 	document.SPPNumber = d.number
+	document.NoPolisi = "" // SAOS police is no longer required or authoritative.
 	return document, err
 }
 
@@ -59,7 +60,7 @@ func TestSPPReferencePostgresLifecycleAndReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	service := NewService(db, nil, testDocuments{})
+	service := NewService(db, nil, canonicalDocuments{number: "SPP-001"})
 	const legacyKey = "96942009-f8c4-4dbf-b7e0-6d5717651660"
 	legacyInput := Input{NoLambung: "SAMT119", Direction: DirectionOut, OutDestination: OutFillingShed, SPPNumber: "SPP-001"}
 	legacyHash, err := requestHash(legacyInput)
@@ -80,8 +81,11 @@ func TestSPPReferencePostgresLifecycleAndReplay(t *testing.T) {
 	if _, err := db.Exec(`UPDATE unit_snapshot SET current_transaction_id=$1 WHERE lambung_unit_id=7`, departureID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := db.Exec(`UPDATE unit_snapshot SET no_polisi='MASTER NEW' WHERE lambung_unit_id=7`); err != nil {
+		t.Fatal(err)
+	}
 	legacyReplay, err := NewService(db, nil, nil).Record(ctx, legacyKey, legacyInput, "actor", "Satpam")
-	if err != nil || legacyReplay.ID != departureID {
+	if err != nil || legacyReplay.ID != departureID || legacyReplay.NoPolisi != "DA 1234 AB" {
 		t.Fatalf("legacy replay must not depend on new reference parsing: %v", err)
 	}
 	wrong := NewService(db, nil, canonicalDocuments{number: "OTHER-SPP"})
@@ -93,13 +97,16 @@ func TestSPPReferencePostgresLifecycleAndReplay(t *testing.T) {
 	if err != nil || firstIn.CycleID == nil || *firstIn.CycleID != cycleID || firstIn.SPPNumber == nil || *firstIn.SPPNumber != "SPP-001" {
 		t.Fatalf("reference must close the original canonical cycle: %v", err)
 	}
+	if firstIn.NoPolisi != "MASTER NEW" {
+		t.Fatal("new returning IN must snapshot current master police")
+	}
 	lookup, err := service.LookupSPP(ctx, "456-Another-Owner")
-	if err != nil || lookup.SPPNumber != "456-Another-Owner" || len(lookup.AllowedOutDestinations) != 1 || lookup.AllowedOutDestinations[0] != OutCustomer {
+	if err != nil || lookup.NoPolisi != "MASTER NEW" || lookup.SPPNumber != "456-Another-Owner" || len(lookup.AllowedOutDestinations) != 1 || lookup.AllowedOutDestinations[0] != OutCustomer {
 		t.Fatalf("alias lookup must use canonical eligibility but echo reference: %v", err)
 	}
 	departure := Input{NoLambung: "SAMT119", Direction: DirectionOut, OutDestination: OutCustomer, SPPNumber: "456-Another-Owner", Coordinates: "0,0"}
 	out, err := service.Record(ctx, "96942009-f8c4-4dbf-b7e0-6d5717651662", departure, "actor", "Satpam")
-	if err != nil || out.SPPNumber == nil || *out.SPPNumber != "SPP-001" {
+	if err != nil || out.NoPolisi != "MASTER NEW" || out.SPPNumber == nil || *out.SPPNumber != "SPP-001" {
 		t.Fatalf("Customer departure must preserve canonical identity: %v", err)
 	}
 	var storedHash []byte
@@ -144,5 +151,9 @@ func TestSPPReferencePostgresLifecycleAndReplay(t *testing.T) {
 	}
 	if movements != 4 || durations != 3 || closed != 2 {
 		t.Fatalf("failed attempts/replays must not add audit/status/cycle records: %d/%d/%d", movements, durations, closed)
+	}
+	var historicalPolice string
+	if err := db.Get(&historicalPolice, `SELECT no_polisi_snapshot FROM movement_transactions WHERE transaction_id=$1`, departureID); err != nil || historicalPolice != "DA 1234 AB" {
+		t.Fatal("master changes/new SPP movements must not rewrite the historical police snapshot")
 	}
 }

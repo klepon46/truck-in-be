@@ -42,8 +42,9 @@ type Documents interface {
 
 type Document struct {
 	// Canonical upstream trans_no; never the APP's ID/owner lookup reference.
-	SPPNumber    string
-	NoLambung    string
+	SPPNumber string
+	NoLambung string
+	// Required for Workshop only; SPP uses the master unit's police number.
 	NoPolisi     string
 	DriverName   string
 	CustomerID   string
@@ -165,7 +166,7 @@ func (s *Service) LookupSPP(ctx context.Context, number string) (SPPLookupDocume
 }
 
 func (s *Service) prepareDocumentUnit(ctx context.Context, document Document) error {
-	if document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" {
+	if document.NoLambung == "" || (document.SPPNumber == "" && document.NoPolisi == "") || document.DriverName == "" {
 		return ErrExternalDocument
 	}
 	if s.refresher != nil {
@@ -379,7 +380,7 @@ func (s *Service) validateDocument(ctx context.Context, input *Input) (Document,
 			}
 			return Document{}, errors.Join(ErrExternalDocument, fmt.Errorf("validate SPP document: %w", err))
 		}
-		if document.SPPNumber == "" || document.NoLambung == "" || document.NoPolisi == "" || document.DriverName == "" || !strings.EqualFold(document.NoLambung, input.NoLambung) {
+		if document.SPPNumber == "" || document.NoLambung == "" || document.DriverName == "" || !strings.EqualFold(document.NoLambung, input.NoLambung) {
 			return Document{}, ErrExternalDocument
 		}
 		return document, nil
@@ -397,7 +398,9 @@ func validateDocumentUnit(document Document, unit snapshot) error {
 	if document.NoLambung == "" {
 		return nil
 	}
-	if !strings.EqualFold(document.NoLambung, unit.NoLambung) || !strings.EqualFold(strings.TrimSpace(document.NoPolisi), strings.TrimSpace(unit.NoPolisi)) {
+	// Only adapter-resolved SPPs carry a canonical number. WO retains its police cross-check.
+	policeMismatch := document.SPPNumber == "" && !strings.EqualFold(strings.TrimSpace(document.NoPolisi), strings.TrimSpace(unit.NoPolisi))
+	if !strings.EqualFold(document.NoLambung, unit.NoLambung) || policeMismatch {
 		return errors.Join(ErrExternalDocument, ErrDocumentUnitMismatch)
 	}
 	return nil

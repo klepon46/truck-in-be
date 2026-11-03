@@ -35,7 +35,6 @@ func TestDocumentErrorsReachAndroidWithoutMovementWrites(t *testing.T) {
 		{"SPP blank unit", "SPP", strings.ReplaceAll(sppLookupFixture, "SAMT072", ""), "DOCUMENT_VALIDATION_FAILED", "Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.", "document_invalid", 200, 422},
 		{"SPP whitespace unit", "SPP", strings.ReplaceAll(sppLookupFixture, "SAMT072", "  "), "DOCUMENT_VALIDATION_FAILED", "Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.", "document_invalid", 200, 422},
 		{"SPP missing driver only", "SPP", strings.ReplaceAll(sppLookupFixture, "JOYO LUMBANRAJA ", ""), "DOCUMENT_VALIDATION_FAILED", "movement document is invalid", "document_invalid", 200, 422},
-		{"SPP missing police only", "SPP", strings.ReplaceAll(sppLookupFixture, "DA 8729 CB", ""), "DOCUMENT_VALIDATION_FAILED", "movement document is invalid", "document_invalid", 200, 422},
 		{"SPP bad record", "SPP", `{"success":true,"data":[{"trans_no":"DOC/001"}]}`, "DOCUMENT_VALIDATION_FAILED", "", "document_invalid", 200, 422},
 		{"WO unauthorized", "WO", "private body", "INTERNAL_ERROR", "", "integration_unavailable", 401, 500},
 		{"SPP unauthorized", "SPP", "private body", "INTERNAL_ERROR", "", "integration_unavailable", 401, 500},

@@ -54,8 +54,8 @@ func TestStoredDocumentReplayPrecedesNotFoundRevalidation(t *testing.T) {
 				const key = "96942009-f8c4-4dbf-b7e0-6d571765166a"
 				for _, conflict := range []bool{false, true} {
 					mock.ExpectQuery("SELECT m.transaction_id").WithArgs(key).
-						WillReturnRows(sqlmock.NewRows([]string{"transaction_id", "request_hash", "coordinates", "work_order_number", "spp_number"}).
-							AddRow(20, hash, "0,0", input.WorkOrderNumber, "DOC/001"))
+						WillReturnRows(sqlmock.NewRows([]string{"transaction_id", "request_hash", "coordinates", "work_order_number", "spp_number", "no_polisi_snapshot"}).
+							AddRow(20, hash, "0,0", input.WorkOrderNumber, "DOC/001", "HISTORICAL PLATE"))
 					retry := input
 					if conflict {
 						retry.Coordinates = "1,1"
@@ -65,7 +65,7 @@ func TestStoredDocumentReplayPrecedesNotFoundRevalidation(t *testing.T) {
 						if !errors.Is(err, ErrIdempotencyConflict) {
 							t.Fatalf("changed payload must still conflict: %v", err)
 						}
-					} else if err != nil || result.ID != 20 || result.Coordinates == nil || *result.Coordinates != "0,0" {
+					} else if err != nil || result.ID != 20 || result.NoPolisi != "HISTORICAL PLATE" || result.Coordinates == nil || *result.Coordinates != "0,0" {
 						t.Fatalf("stored movement must replay even if document is now absent: %v", err)
 					}
 				}

@@ -121,8 +121,9 @@ func (c *Client) SPP(ctx context.Context, number string) (movement.Document, err
 		CustomerID   string `json:"customer_code"`
 		CustomerName string `json:"customer_name"`
 		VehicleNo    string `json:"unit_name"`
-		PoliceNo     string `json:"unit_police_no"`
 	}
+	// SAOS police text has no reliable contract; master Unit Lambung is authoritative.
+	// Do not decode it or include it in document-projection equality below.
 	// SAOS returns a nil slice as explicit null when a successful query has no rows.
 	if err := json.Unmarshal(response.Data, &records); err != nil {
 		return movement.Document{}, fmt.Errorf("%w: SAOS returned an invalid data array", movement.ErrIntegrationUnavailable)
@@ -136,14 +137,13 @@ func (c *Client) SPP(ctx context.Context, number string) (movement.Document, err
 		candidate := movement.Document{
 			SPPNumber:    strings.TrimSpace(record.Number),
 			NoLambung:    strings.ToUpper(strings.TrimSpace(record.VehicleNo)),
-			NoPolisi:     strings.ToUpper(strings.TrimSpace(record.PoliceNo)),
 			DriverName:   strings.TrimSpace(record.DriverName),
 			CustomerID:   strings.TrimSpace(record.CustomerID),
 			CustomerName: strings.TrimSpace(record.CustomerName),
 		}
-		if candidate.SPPNumber == "" || candidate.NoLambung == "" || candidate.NoPolisi == "" || candidate.DriverName == "" {
+		if candidate.SPPNumber == "" || candidate.NoLambung == "" || candidate.DriverName == "" {
 			slog.WarnContext(ctx, "SPP document rejected", "reason", "missing_required_fields",
-				"missing_number", candidate.SPPNumber == "", "missing_unit", candidate.NoLambung == "", "missing_police", candidate.NoPolisi == "", "missing_driver", candidate.DriverName == "")
+				"missing_number", candidate.SPPNumber == "", "missing_unit", candidate.NoLambung == "", "missing_driver", candidate.DriverName == "")
 			if candidate.NoLambung == "" {
 				return movement.Document{}, errors.Join(movement.ErrExternalDocument, movement.ErrSPPUnitMissing)
 			}

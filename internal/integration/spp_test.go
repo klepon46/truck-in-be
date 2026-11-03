@@ -50,7 +50,7 @@ func TestSPPUsesConfirmedSAOSContract(t *testing.T) {
 			if err != nil {
 				t.Fatalf("SPP() error = %v", err)
 			}
-			if document.SPPNumber != "SPG-BJM-2612481" || document.NoLambung != "SAMT072" || document.NoPolisi != "DA 8729 CB" || document.DriverName != "JOYO LUMBANRAJA" || document.CustomerID != "C400" || document.CustomerName != "PT KAPUAS MAJU JAYA" {
+			if document.SPPNumber != "SPG-BJM-2612481" || document.NoLambung != "SAMT072" || document.NoPolisi != "" || document.DriverName != "JOYO LUMBANRAJA" || document.CustomerID != "C400" || document.CustomerName != "PT KAPUAS MAJU JAYA" {
 				t.Fatal("SPP() did not map the confirmed SAOS record")
 			}
 		})
@@ -77,7 +77,6 @@ func TestSPPRejectsInvalidRecords(t *testing.T) {
 		"missing success":    strings.ReplaceAll(actualSPPResponse, `"success": true,`, ``),
 		"unsuccessful":       strings.ReplaceAll(actualSPPResponse, `"success": true`, `"success": false`),
 		"missing unit":       strings.ReplaceAll(actualSPPResponse, `"SAMT072"`, `"  "`),
-		"missing police":     strings.ReplaceAll(actualSPPResponse, `"DA 8729 CB"`, `""`),
 		"missing driver":     strings.ReplaceAll(actualSPPResponse, `"JOYO LUMBANRAJA "`, `"  "`),
 		"null data":          `{"success":true,"data":null}`,
 		"object not array":   `{"success":true,"data":{"trans_no":"SPG-BJM-2612481"}}`,
@@ -133,7 +132,11 @@ func TestSPPCollapsesOnlyConsistentDocumentProjections(t *testing.T) {
 		{"different ignored quantity", strings.ReplaceAll(actualSPPResponse, `"qty": 10000`, `"qty": 500`), true},
 		{"different canonical number", strings.ReplaceAll(actualSPPResponse, "SPG-BJM-2612481", "OTHER-SPP"), false},
 		{"different customer", strings.ReplaceAll(actualSPPResponse, "C400", "C401"), false},
-		{"different police", strings.ReplaceAll(actualSPPResponse, "DA 8729 CB", "DA 0000 XX"), false},
+		{"different police", strings.ReplaceAll(actualSPPResponse, "DA 8729 CB", "DA 0000 XX"), true},
+		{"omitted police", strings.ReplaceAll(actualSPPResponse, `"unit_police_no": "DA 8729 CB",`, ""), true},
+		{"non-string ignored police", strings.ReplaceAll(actualSPPResponse, `"DA 8729 CB"`, `{"arbitrary":true}`), true},
+		{"different unit", strings.ReplaceAll(actualSPPResponse, "SAMT072", "SAMT999"), false},
+		{"different driver", strings.ReplaceAll(actualSPPResponse, "JOYO LUMBANRAJA", "Other Driver"), false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var first, second struct {

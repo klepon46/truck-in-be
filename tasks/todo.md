@@ -142,3 +142,15 @@
 - [x] Test missing/null/blank/whitespace unit codes and negative cases; pass full tests/vet/build and review without live writes (12 new missing-unit HTTP cases, generic other-field/WO checks, and existing master-unit regressions).
 - [x] Update Swagger, PRD (Draf v1.18 / Confluence version 24, read-back verified), and APP guidance; upstream queries/master data remain unchanged. Docker test image and exact-message Swagger checks also passed.
 - Verify: focused HTTP/integration regressions followed by `go test ./... -count=1`, `go vet ./...`, and `go build ./...`.
+
+## Task 25: SPP Uses Master Unit Police Number
+
+- [x] Add failing adapter/HTTP regressions for ignored SAOS police text, omissions and duplicate differences; verify lookup and successful IN/OUT use master police values (eight police variants, including unused non-string data).
+- [x] Relax only SPP police checks; preserve required unit/active master resolution, wrong-unit rejection, WO validation, replay/history and lifecycle rules. Focused/full Go tests passed, plus disposable PostgreSQL eligibility and canonical lifecycle/replay tests with unchanged old police and master-backed new snapshots. The temporary PostgreSQL server was stopped; no live data touched.
+- Verify: focused integration/HTTP/movement tests, then `go test ./... -count=1`. Files: adapter/service and their focused tests. Dependencies: Task 24.
+
+## Task 26: SPP Police Policy Handover And Verification
+
+- [ ] Update Swagger, standalone APP handovers/troubleshooting and PRD with master authority, unchanged payloads/history, and the lost independent cross-check.
+- [ ] Pass tests/vet/build, Docker and disposable PostgreSQL checks where available, and correctness/security review. No live calls/writes, push, or deployment.
+- Verify: generated Swagger contract/read-back PRD and `go test ./... -count=1`, `go vet ./...`, `go build ./...`. Dependencies: Task 25.

@@ -6,6 +6,8 @@ Initialize the Go service, then implement UnitLog in vertical slices: safe start
 
 ## Architecture Decisions
 
+- Approved SPP police policy (Task 25 → 26): ignore SAOS police free text at decoding; retain canonical/unit/driver/customer consistency and active master-unit matching. Relax only SPP service police checks using the trusted canonical `Document.SPPNumber` discriminator. Keep master-backed lookup/INSERT and replay/history unchanged. First prove the behavior with integration/HTTP/service tests, then verify and publish Swagger/APP/PRD guidance. No schema/config/upstream edits or live writes. Risk: accidentally relaxing WO/unit checks; mitigate with explicit negative regressions and full-suite review.
+
 - Consul is read at startup through its KV HTTP API; its address, ACL token, and JSON key are injected by the deployment environment.
 - PostgreSQL is authoritative for snapshots and immutable movement history. A single database transaction will lock a unit snapshot, validate the transition, insert the history record, and update the current pointer.
 - JWT validation is local and restricted to HS256. Permission checks are route-specific.
