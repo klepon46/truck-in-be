@@ -422,6 +422,7 @@ paths:
         Accepts an ID-owner reference (123-example), splitting on the first hyphen and encoding SAOS id and owner separately. Echoes the reference as sppNumber for submit, but eligibility uses the canonical SAOS trans_no. Malformed references return 400 INVALID_DOCUMENT_QUERY.
         Returns 404 SPP_NOT_FOUND for an empty/null successful SAOS result, or 404 UNIT_NOT_FOUND for an unresolved document unit. Conflicting document projections return 422; missing/malformed data and integration failures return 500.
         A missing/null/blank SAOS unit_name returns 422 DOCUMENT_VALIDATION_FAILED with: Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit. This is not 404 UNIT_NOT_FOUND.
+        SPP ignores SAOS unit_police_no, including missing/null/blank/free-text values and police-only duplicate differences. noPolisi comes from master Unit Lambung. unit_name must still resolve to the same active master unit; canonical/driver/customer conflicts remain invalid. WO police validation is unchanged.
       parameters:
       - description: SPP reference in {id}-{owner} format, e.g. 123-example; owner
           may contain hyphens
@@ -532,6 +533,7 @@ paths:
         Fresh document validation returns 404 WORK_ORDER_NOT_FOUND or SPP_NOT_FOUND for confirmed upstream absence. Invalid document data remains 422; integration failures return 500. Stored idempotent replays do not depend on current upstream document availability.
         SPP input is an ID-owner reference (123-example), split on the first hyphen and resolved using SAOS id/owner parameters. Audit/lifecycle use the returned canonical trans_no; request hashes/retries retain the original reference. Malformed fresh SPP references return 422 VALIDATION_ERROR.
         A missing/null/blank SAOS unit_name returns 422 DOCUMENT_VALIDATION_FAILED with: Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit. Other document errors keep their existing messages.
+        SPP ignores SAOS unit_police_no: new IN/OUT police snapshots come from the locked master Unit Lambung unit. Required unit_name, active-unit matching, canonical lifecycle/customer/return checks remain enforced. WO police validation and historical/idempotent replay snapshots are unchanged; do not send a police override.
       parameters:
       - description: UUID generated once per movement
         in: header

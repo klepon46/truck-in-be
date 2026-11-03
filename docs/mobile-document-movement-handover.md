@@ -55,7 +55,7 @@ An SPP lookup returns `sppNumber` instead of `workOrderNumber`, plus the SAOS `c
 }
 ```
 
-UnitLog splits the reference on its first hyphen, trims each part, and calls SAOS with separate `id`/`owner` query parameters. Owner case and remaining hyphens are preserved. A consistent SAOS `data[]` resolves to its canonical `trans_no`; identical projections may repeat, conflicting rows are rejected. Eligibility and audit use the canonical number, while lookup `sppNumber` echoes the trimmed reference for APP submit. `customerId` comes from `customer_code`; unit/police still must match the active snapshot. Extra quantity/capacity/`is_marked` fields do not select a document. See [the ID/owner reference handover](mobile-spp-id-owner-handover.md).
+UnitLog splits the reference on its first hyphen, trims each part, and calls SAOS with separate `id`/`owner` query parameters. Owner case and remaining hyphens are preserved. A consistent SAOS `data[]` resolves to its canonical `trans_no`; identical projections may repeat, conflicting rows are rejected. Eligibility and audit use the canonical number, while lookup `sppNumber` echoes the trimmed reference for APP submit. `customerId` comes from `customer_code`; `unit_name` must still resolve/match the active master unit. SAOS police text is ignored, including missing/null/blank values and police-only row differences; lookup/new movement police comes from master Unit Lambung. Extra quantity/capacity/`is_marked` fields do not select a document. See [the ID/owner reference handover](mobile-spp-id-owner-handover.md) and [master police policy](mobile-spp-master-police-handover.md).
 
 For a **new SPP OUT**, show only `allowedOutDestinations` returned by BE. This field is always an array, including `[]` for a valid document with no eligible OUT. A missing field means eligibility is unknown, not that both destinations are allowed. Clear an old destination if it is not present after a new lookup. The array does not restrict IN or authorize changes to a pending retry; see [the SPP eligibility APP handover](mobile-spp-out-eligibility-handover.md).
 
@@ -136,11 +136,11 @@ For OUT, replace `inCategory` with `outDestination: "OTHER"`. OTHER must use bot
 - `404 SPP_NOT_FOUND`: `SPP tidak ditemukan di SAOS.` SAOS returned a successful empty/null result for ID/owner; applies to lookup and fresh IN/OUT submit.
 - `422 VALIDATION_ERROR`: a fresh submit SPP reference is malformed (missing delimiter/ID/owner).
 - `404 UNIT_NOT_FOUND`: document vehicle code does not resolve to an active Unit Lambung snapshot.
-- `422 DOCUMENT_VALIDATION_FAILED`: document data is invalid, conflicts with its resolved unit/police data, or an IN document does not match the open OUT.
+- `422 DOCUMENT_VALIDATION_FAILED`: document data is invalid, conflicts with its resolved unit (or police for WO only), or an IN document does not match the open OUT.
 - `422 INVALID_TRANSITION`: another movement changed the unit state before submit.
 - `500 INTERNAL_ERROR`: WO/SPP integration/configuration, upstream authentication/service, connection, or response-parsing failure. This is not document absence or a document-validation rejection. Do not tell the satpam to change the document number solely because of this response.
 
-For a unit/police mismatch, the validation message asks operations to check master data; never override the resolved unit or bypass this validation. Keep the stable HTTP status/code as the app contract rather than matching error-message text. See [SPP lookup troubleshooting](spp-lookup-troubleshooting.md) for backend diagnostics.
+For a unit mismatch (or WO police mismatch), the validation message asks operations to check master data; never override the resolved unit or bypass this validation. SPP no longer cross-checks SAOS police. Keep the stable HTTP status/code as the app contract rather than matching error-message text. See [SPP lookup troubleshooting](spp-lookup-troubleshooting.md) for backend diagnostics.
 
 For missing/null/blank SAOS `unit_name`, lookup and SPP IN/OUT submit use `422 DOCUMENT_VALIDATION_FAILED` with `Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.` Display that safe message rather than replacing it with a generic error. It is not a missing-master `404 UNIT_NOT_FOUND`; validation remains strict.
 

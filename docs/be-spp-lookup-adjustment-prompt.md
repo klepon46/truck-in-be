@@ -1,5 +1,7 @@
 # UnitLog BE: SPP Lookup Investigation and Adjustment Prompt
 
+> Historical prompt: its SPP police-validation requirements are superseded by [the approved master-police policy](mobile-spp-master-police-handover.md). Ignore SAOS police free text/absence and police-only duplicate differences; lookup/new snapshots use master Unit Lambung. Required No Lambung/active-unit matching and WO police checks remain strict.
+
 Copy the instructions below to the backend AI agent.
 
 ---

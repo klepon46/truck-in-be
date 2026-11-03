@@ -46,6 +46,7 @@ func workshopLookupHandler(lookup DocumentLookup) gin.HandlerFunc {
 // @Description Accepts an ID-owner reference (123-example), splitting on the first hyphen and encoding SAOS id and owner separately. Echoes the reference as sppNumber for submit, but eligibility uses the canonical SAOS trans_no. Malformed references return 400 INVALID_DOCUMENT_QUERY.
 // @Description Returns 404 SPP_NOT_FOUND for an empty/null successful SAOS result, or 404 UNIT_NOT_FOUND for an unresolved document unit. Conflicting document projections return 422; missing/malformed data and integration failures return 500.
 // @Description A missing/null/blank SAOS unit_name returns 422 DOCUMENT_VALIDATION_FAILED with: Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit. This is not 404 UNIT_NOT_FOUND.
+// @Description SPP ignores SAOS unit_police_no, including missing/null/blank/free-text values and police-only duplicate differences. noPolisi comes from master Unit Lambung. unit_name must still resolve to the same active master unit; canonical/driver/customer conflicts remain invalid. WO police validation is unchanged.
 // @Tags Movements
 // @Produce json
 // @Param number query string true "SPP reference in {id}-{owner} format, e.g. 123-example; owner may contain hyphens"

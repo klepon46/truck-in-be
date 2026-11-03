@@ -144,11 +144,11 @@ Lookup bukan reservasi. Satpam lain dapat mengubah status sebelum submit. BE sel
 | --- | --- |
 | `404 SPP_NOT_FOUND` | Tampilkan `SPP tidak ditemukan di SAOS.`; tawarkan koreksi/scan ulang untuk percobaan baru, tanpa mengubah payload pending. |
 | `422 INVALID_TRANSITION` | Status tidak mengizinkan aksi; pertahankan form dan tawarkan lookup ulang untuk percobaan baru. |
-| `422 DOCUMENT_VALIDATION_FAILED` | Validasi dokumen, kecocokan unit/polisi, SPP aktif, customer, atau returning document gagal; tampilkan pesan aman dari BE. |
+| `422 DOCUMENT_VALIDATION_FAILED` | Validasi field wajib dokumen, kecocokan unit, SPP aktif, customer, atau returning document gagal; tampilkan pesan aman dari BE. Polisi SAOS tidak lagi diwajibkan/dibandingkan untuk SPP. |
 | `409 SPP_USED` | SPP tidak dapat dipakai untuk departure tersebut; tawarkan koreksi atau dokumen lain. |
 | `409 IDEMPOTENCY_CONFLICT` | Key dipakai dengan payload berbeda; jangan otomatis mengganti payload/key untuk meneruskan retry yang hasilnya belum pasti. |
 
-Pada lookup, dokumen/unit/polisi yang sungguh invalid tetap menghasilkan error, bukan sekadar array kosong. `500 INTERNAL_ERROR` adalah gangguan integrasi/database, bukan hasil eligibility `[]`.
+Pada lookup, field wajib dokumen/unit yang sungguh invalid tetap menghasilkan error, bukan sekadar array kosong. SPP mengabaikan polisi free text SAOS (termasuk hilang/null/kosong dan perbedaan polisi antar-row); polisi lookup/snapshot baru berasal dari master Unit Lambung. Unit aktif tetap wajib cocok; WO dan histori/replay tidak berubah. Lihat [handover polisi master](mobile-spp-master-police-handover.md). `500 INTERNAL_ERROR` adalah gangguan integrasi/database, bukan hasil eligibility `[]`.
 
 ## 9. Retry Harus Dipisahkan dari Form Movement Baru
 

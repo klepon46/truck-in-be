@@ -151,6 +151,6 @@
 
 ## Task 26: SPP Police Policy Handover And Verification
 
-- [ ] Update Swagger, standalone APP handovers/troubleshooting and PRD with master authority, unchanged payloads/history, and the lost independent cross-check.
-- [ ] Pass tests/vet/build, Docker and disposable PostgreSQL checks where available, and correctness/security review. No live calls/writes, push, or deployment.
+- [x] Update Swagger, standalone APP handovers/troubleshooting and PRD (Draf v1.19 / Confluence version 25, read-back verified) with master authority, unchanged payloads/history, and the lost independent cross-check. Mark historical prompt police requirements as superseded.
+- [x] Pass full Go tests/vet/build, generated Swagger contract checks and disposable PostgreSQL eligibility/lifecycle/replay tests; review correctness/security/readability/architecture/performance. No new query/dependency/schema/config or public request fields; only trusted canonical SPP documents relax police checks. Docker verification could not run because the local Docker daemon is unavailable; PostgreSQL 15 disposable local fixtures passed and the test server was stopped. No live calls/writes, push, or deployment.
 - Verify: generated Swagger contract/read-back PRD and `go test ./... -count=1`, `go vet ./...`, `go build ./...`. Dependencies: Task 25.

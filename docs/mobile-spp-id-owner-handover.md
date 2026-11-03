@@ -89,12 +89,14 @@ Pilihan OUT tetap hanya dari `allowedOutDestinations`. `[]` bukan kegagalan look
 | Hasil sukses SAOS kosong (`[]`/`null`) | `404 SPP_NOT_FOUND`, pesan `SPP tidak ditemukan di SAOS.` |
 | `unit_name` SAOS hilang, null, kosong, atau hanya spasi | `422 DOCUMENT_VALIDATION_FAILED`, pesan `Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit.` |
 | Dokumen tidak lengkap atau hasil ID/owner bertentangan | `422 DOCUMENT_VALIDATION_FAILED` |
-| Unit/polisi/return/customer/lifecycle tidak cocok | Error validasi yang sudah berlaku; jangan bypass |
+| Unit/return/customer/lifecycle tidak cocok | Error validasi yang sudah berlaku; jangan bypass. Polisi SAOS bukan pembanding SPP |
 | Autentikasi/service upstream, network, atau envelope malformed | `500 INTERNAL_ERROR`, bukan dokumen tidak ditemukan |
 
 Tetap cabangkan perilaku menggunakan `error.code`. `404 UNIT_NOT_FOUND` adalah masalah unit, bukan dokumen. Saat nomor diubah/lookup gagal, bersihkan hasil lookup/selection lama untuk form baru dan abaikan respons asynchronous usang.
 
 Untuk `DOCUMENT_VALIDATION_FAILED`, tampilkan pesan aman BE, jangan selalu menimpanya dengan pesan generik atau mencocokkan teks untuk percabangan. Pesan kode Unit Lambung tidak tersedia berlaku pada lookup dan submit SPP IN/OUT, bukan berarti unit pasti tidak ada di master Unit Lambung. Validasi tetap menolak; jangan memilih unit manual atau memakai nomor polisi sebagai fallback. Payload dan kode error tidak berubah.
+
+**Polisi SPP:** BE mengabaikan `unit_police_no` SAOS (termasuk hilang/null/kosong/free text dan perbedaan polisi antar-row). Lookup dan snapshot movement baru memakai polisi master Unit Lambung, sementara `unit_name` tetap wajib dan harus cocok dengan unit aktif. WO tetap memvalidasi polisi. Histori/replay tidak diubah; jangan kirim override polisi. Pemeriksaan silang polisi SAOS hilang, jadi No Lambung salah tetapi valid/aktif tidak dapat dideteksi lewat polisi. Lihat [handover master polisi](mobile-spp-master-police-handover.md).
 
 ## 5. Retry, Migrasi, dan Deployment
 
