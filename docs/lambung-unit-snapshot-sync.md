@@ -17,6 +17,18 @@ Authorization: Bearer <service-token>
 
 The endpoint is internal. It must require a service token with permission to read the UnitLog synchronization projection.
 
+### Deployment Base URL
+
+UnitLog appends this endpoint beneath the complete `lambung_api_base_url` path prefix. Both `https://superapp.sinaralam.com/lambung-service` and the same value ending in `/` produce:
+
+```text
+https://superapp.sinaralam.com/lambung-service/lambung/v1/internal/unit-snapshots?limit=100
+```
+
+Bare-origin URLs (such as a direct internal service host) still call `/lambung/v1/internal/unit-snapshots`. Configure the service root only, not the entire endpoint or a URL containing query parameters. Cursor/limit remain separate encoded query values, and UnitLog still sends the configured `lambung_service_token` as a Bearer token. The shared URL join policy also applies to SAOS, Workshop, and Driver; it does not change synchronization validation or movement snapshots.
+
+Older BE images used a root-relative URL reference and discarded prefixes such as `/lambung-service/`; deploy the fixed image rather than attempting to repair that behavior by adding a trailing slash. A tokenless `401` probe confirms an HTTP response, not service-token validity. A root-path `404` is a routing failure, while `call integration` remains a generic transport/request error requiring separate investigation if it persists. Do not disable TLS verification or expose tokens to diagnose it.
+
 ## Query Parameters
 
 | Name | Required | Rules |

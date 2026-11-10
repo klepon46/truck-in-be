@@ -33,6 +33,8 @@ Jika Consul memakai ACL, inject `CONSUL_HTTP_TOKEN` melalui mekanisme secret/cre
 
 Periksa konfigurasi key PROD secara privat: pastikan database benar-benar database PROD, `server_port` sesuai mapping, dan semua nilai wajib runtime sudah tersedia. Jangan menyalin DSN/token DEV atau menampilkan isi JSON konfigurasi ke log. Server PROD harus dapat mengakses Consul dan dependency yang ditunjuk oleh konfigurasi tersebut; `localhost` di dalam container bukan host Consul/database.
 
+Untuk Unit Lambung PROD, base URL yang dilaporkan adalah `https://superapp.sinaralam.com/lambung-service/`. Image BE yang sudah diperbaiki mempertahankan prefix, sehingga sync memanggil `https://superapp.sinaralam.com/lambung-service/lambung/v1/internal/unit-snapshots?limit=100` (default page size). Trailing slash boleh ada/tidak; gunakan service root, bukan full endpoint. Image lama membuang prefix ini, jadi menambahkan slash di Consul saja tidak cukup: deploy image baru. Aturan ini juga berlaku untuk base URL SAOS/Workshop/Driver; periksa prefix yang sebelumnya terabaikan sebelum rollout. Token, verifikasi TLS, serta payload APP tetap sama; fix URL ini tidak membutuhkan migration baru.
+
 ## 3. Jalankan Migration Secara Manual Sebelum Server Baru
 
 Setelah backup/database dan change window disetujui, buat container **one-off** terpisah di Portainer pada server PROD:
@@ -63,6 +65,9 @@ Setelah deploy, tunggu health status **healthy** dan periksa `/health` menghasil
 | `Consul address and config key are required` | Salah satu env alamat/key belum masuk atau kosong; belum terjadi request ke Consul. Perbaiki Env pada container PROD lalu recreate. |
 | `Consul address must be an HTTPS URL unless CONSUL_ALLOW_INSECURE_HTTP=true` | Alamat HTTP dipakai tanpa opt-in; sesuaikan Env atau gunakan HTTPS. |
 | `read configuration from Consul` / status error | Cek akses jaringan, key, dan ACL secara privat; jangan menganggap ini masalah payload movement. |
+| `sync Unit Lambung` / `integration returned status 404` | Cek base URL dan route gateway. Image baru harus mempertahankan `/lambung-service/`; jangan menambahkan endpoint lengkap ke base URL atau mencoba fallback route otomatis. |
+| `sync Unit Lambung` / status `401` atau `403` | Ada respons HTTP; periksa autentikasi/izin gateway dan `lambung_service_token` secara privat. Tes tanpa token memang dapat menghasilkan 401 dan tidak membuktikan token konfigurasi salah/benar. |
+| `sync Unit Lambung` / `call integration` | Request gagal, misalnya DNS/koneksi/timeout/TLS/redirect. Ini bukan pesan yang sama dengan HTTP 404; jika masih muncul setelah fix prefix, investigasi transport secara terpisah tanpa mematikan TLS atau membagikan secret. |
 | Config/database validation atau startup gagal | Periksa key PROD, migration, DSN, serta mandatory runtime fields secara privat. Jangan melewati validasi. |
 
 Jika server baru gagal, hentikan rollout dan kembalikan image/runtime settings sebelumnya **hanya jika kompatibel dengan schema/config sekarang**. Jenkins tidak mengurus rollback PROD. Jangan downgrade schema secara otomatis atau mengubah histori movement. Untuk deployment PROD pertama, tidak ada image lama untuk rollback: hentikan kandidat yang gagal dan perbaiki konfigurasi sebelum mencoba lagi. Jangan membagikan dump environment/config yang berisi secret.

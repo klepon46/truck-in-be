@@ -176,5 +176,5 @@
 ## Task 30: Prefix Deployment Guidance And Verification
 
 - [x] Update configuration, Unit Lambung sync, and Portainer guidance with prefix-aware URLs, status interpretation, and deployment/verification limits. Existing paths on other integrations are now honored; review these before rollout. No live requests/configuration/token/TLS changes.
-- [ ] Review correctness/security and run Go tests/vet/build plus available Docker checks. Do not claim production token/transport resolution from the routing fix alone.
+- [x] Review correctness/security/architecture/readability/performance and source/documentation consistency. Full Go tests/vet/build, Docker test target, and production-image build passed. The shared change joins escaped paths only and retains endpoint queries, headers, transport/TLS, timeout/context, privacy, and response classifications. Production token validity and the original generic transport failure remain unverified; no live configuration, integration, data, push, or deployment changes.
 - Verify: source/documentation consistency and full test results; report unavailable tooling. Dependencies: Task 29.
