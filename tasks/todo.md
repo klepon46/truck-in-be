@@ -154,3 +154,15 @@
 - [x] Update Swagger, standalone APP handovers/troubleshooting and PRD (Draf v1.19 / Confluence version 25, read-back verified) with master authority, unchanged payloads/history, and the lost independent cross-check. Mark historical prompt police requirements as superseded.
 - [x] Pass full Go tests/vet/build, generated Swagger contract checks and disposable PostgreSQL eligibility/lifecycle/replay tests; review correctness/security/readability/architecture/performance. No new query/dependency/schema/config or public request fields; only trusted canonical SPP documents relax police checks. Docker verification could not run because the local Docker daemon is unavailable; PostgreSQL 15 disposable local fixtures passed and the test server was stopped. No live calls/writes, push, or deployment.
 - Verify: generated Swagger contract/read-back PRD and `go test ./... -count=1`, `go vet ./...`, `go build ./...`. Dependencies: Task 25.
+
+## Task 27: Keep Jenkins PROD Publish-Only
+
+- [x] Reproduce the missing PROD migration guard with a failing local pipeline contract test; add a DEV-only guard and preserve approval/push/DEV runtime forwarding and rollback. Focused tests passed after the fix.
+- [x] Add an explicit published-not-deployed production handoff with the exact image, Portainer runbook, and non-secret Consul environment values. No token values are logged or baked into the image.
+- Verify: `go test ./ci -count=1`, then full Go tests/vet/build. Scope: Jenkinsfile and a focused test file. No live Jenkins/registry/deploy operations.
+
+## Task 28: Manual PROD Portainer Runbook
+
+- [x] Document runtime Consul Env, manual migration-before-start, server recreation, health verification, and safe rollback; link from README and Jenkins output (`docs/production-portainer.md`).
+- [x] Review correctness/security/scope and source/runbook consistency; full Go tests/vet/build passed after rerunning a timed-out foreground check in the background. Docker verification is unavailable because the local daemon is not running; Jenkins controller/Portainer execution was not performed. The stage guard follows the existing DEV condition and official Jenkins `when` documentation. No live Jenkins, registry, Consul, database, or Portainer changes were made.
+- Verify: source/runbook consistency, `go test ./... -count=1`, `go vet ./...`, `go build ./...`; Docker where available. Dependencies: Task 27.

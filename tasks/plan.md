@@ -86,3 +86,10 @@ No migration is required. Main risks are deriving active SPP from unrelated old 
 1. Test the new query parsing and canonical response mapping against the verified producer contract; fail closed on inconsistent rows. Preserve not-found/integration distinctions and safe diagnostics.
 2. Carry the canonical SPP through lookup eligibility and fresh movement validation/persistence, while hashing and replaying the original reference payload. Verify existing cycles, duplicate guards, both directions, and legacy replay without audit edits.
 3. Align older contract fixtures, Swagger, PRD, and APP guides; publish a standalone ID/owner handover. Run Go tests/vet/build, Docker tests, and isolated database checks if needed. Do not modify live services.
+
+## Approved Extension: Publish-Only PROD / Manual Portainer
+
+1. Reproduce the unintended PROD migration path with a local Jenkinsfile contract test, then guard migrations with the existing DEV-only condition. Preserve build/push/approval and DEV deployment behavior; report PROD publication with a manual handoff, not auto-deployment success.
+2. Document the exact production Consul base address/key/HTTP opt-in in a Portainer runbook and link it from README/Jenkins success output. Explain runtime environment injection, manual migration, recreate, health checks, and safe rollback. Run Go tests/vet/build and available Docker validation; record that static checks do not execute Jenkins/Portainer. Never contact or mutate live infrastructure.
+
+Risk: treating registry publication as runtime configuration, or accidentally targeting DEV from Jenkins. Mitigation: leave PROD deployment manual on its separate server and restrict all Jenkins migration/deployment stages to DEV.

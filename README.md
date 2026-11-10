@@ -212,7 +212,9 @@ docker run --rm --entrypoint /app/migrate <image> up
 
 Inject the Consul environment variables when running either binary in a container.
 
-`Jenkinsfile` accepts `TARGET_ENV=dev` or `TARGET_ENV=prod`. It regenerates and checks Swagger, builds the Docker test target, builds and tags the image, and pushes it with the Jenkins agent's configured Docker registry authentication. Development deployments run on the Jenkins agent with health checks and rollback behavior. Production requires manual approval and only publishes the image; production migration and deployment follow the production runbook.
+`Jenkinsfile` accepts `TARGET_ENV=dev` or `TARGET_ENV=prod`. It regenerates and checks Swagger, builds the Docker test target, builds and tags the image, and pushes it with the Jenkins agent's configured Docker registry authentication. Development migrations and deployments run on the Jenkins agent with health checks and rollback behavior. Production requires manual approval and **only publishes the image**: Jenkins does not run PROD migrations or start/replace a PROD container. The separate production server is deployed manually through [the Portainer runbook](docs/production-portainer.md).
+
+The image does not contain runtime Consul configuration. In Portainer, set `CONSUL_HTTP_ADDR=http://172.16.17.17:8500`, `CONSUL_CONFIG_KEY=prod/be/truckin-be-config`, and `CONSUL_ALLOW_INSECURE_HTTP=true` for both migration and server containers, then recreate/redeploy the server. Do not use the Consul browser `/ui/.../edit` URL as the base address. A restart alone does not add environment variables. Supply an ACL token separately if required; never commit it or print it in build logs.
 
 ## Project Layout
 

@@ -130,6 +130,9 @@ pipeline {
         }
 
         stage('Apply Database Migrations') {
+            when {
+                expression { env.ENVIRONMENT == 'dev' }
+            }
             steps {
                 sh '''
                     set -eu
@@ -245,7 +248,15 @@ pipeline {
         success {
             script {
                 if (env.ENVIRONMENT == 'prod') {
-                    echo "Production image published: ${env.IMAGE_NAME}"
+                    echo "Production image published (not deployed): ${env.IMAGE_NAME}"
+                    echo "Jenkins did not run PROD migrations or deploy a PROD container. Manual steps: docs/production-portainer.md"
+                    echo """
+                    Set these runtime environment variables in Portainer (migration and server):
+                    CONSUL_HTTP_ADDR=${env.CONSUL_HTTP_ADDR}
+                    CONSUL_CONFIG_KEY=${env.CONSUL_CONFIG_KEY}
+                    CONSUL_ALLOW_INSECURE_HTTP=${env.CONSUL_ALLOW_INSECURE_HTTP}
+                    Supply CONSUL_HTTP_TOKEN separately through deployment secrets if ACL is enabled.
+                    """
                 } else {
                     echo "Development deployment succeeded: ${env.IMAGE_NAME}"
                 }
