@@ -93,3 +93,8 @@ No migration is required. Main risks are deriving active SPP from unrelated old 
 2. Document the exact production Consul base address/key/HTTP opt-in in a Portainer runbook and link it from README/Jenkins success output. Explain runtime environment injection, manual migration, recreate, health checks, and safe rollback. Run Go tests/vet/build and available Docker validation; record that static checks do not execute Jenkins/Portainer. Never contact or mutate live infrastructure.
 
 Risk: treating registry publication as runtime configuration, or accidentally targeting DEV from Jenkins. Mitigation: leave PROD deployment manual on its separate server and restrict all Jenkins migration/deployment stages to DEV.
+
+## Approved Fix: Integration Base URL Prefixes
+
+1. Add failing local HTTP regressions for all four integration clients across bare origins and path-prefixed service roots with/without trailing slash, nested/escaped paths, and special query values. Use the documented Go `URL.JoinPath` API to append only escaped endpoint paths and copy the endpoint query independently; preserve transport/auth/error behavior.
+2. Verify status/privacy and Workshop-only 404 classification on prefixed routes, then full Go tests/vet/build and available Docker checks. Update README, sync contract guidance, and Portainer troubleshooting; no live calls, token/TLS bypass, configuration writes, or deployment. Main risk: shared-client regressions or double-encoding query/path components; real-request matrix tests and the existing integration/HTTP suites cover these.

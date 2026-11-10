@@ -280,7 +280,12 @@ func (c *Client) getJSONStatus(ctx context.Context, baseURL, token, path string,
 	if err != nil {
 		return 0, errors.New("invalid integration path")
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, base.ResolveReference(relative).String(), nil)
+	// Endpoint paths live beneath the configured service root, including gateway prefixes.
+	// Join only the escaped path; query values must not become path data or inherit base queries.
+	endpoint := base.JoinPath(relative.EscapedPath())
+	endpoint.RawQuery, endpoint.ForceQuery = relative.RawQuery, relative.ForceQuery
+	endpoint.Fragment, endpoint.RawFragment = relative.Fragment, relative.RawFragment
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
 		return 0, errors.New("create integration request")
 	}

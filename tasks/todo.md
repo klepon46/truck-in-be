@@ -166,3 +166,15 @@
 - [x] Document runtime Consul Env, manual migration-before-start, server recreation, health verification, and safe rollback; link from README and Jenkins output (`docs/production-portainer.md`).
 - [x] Review correctness/security/scope and source/runbook consistency; full Go tests/vet/build passed after rerunning a timed-out foreground check in the background. Docker verification is unavailable because the local daemon is not running; Jenkins controller/Portainer execution was not performed. The stage guard follows the existing DEV condition and official Jenkins `when` documentation. No live Jenkins, registry, Consul, database, or Portainer changes were made.
 - Verify: source/runbook consistency, `go test ./... -count=1`, `go vet ./...`, `go build ./...`; Docker where available. Dependencies: Task 27.
+
+## Task 29: Preserve Service Prefixes In Integration URLs
+
+- [x] Reproduce dropped base paths with failing HTTP request tests, including trailing-slash, nested/escaped prefix and encoded query cases across Lambung, SAOS, Workshop, and Driver (32 request-matrix cases plus six prefixed status/not-found cases).
+- [x] Join endpoint paths beneath the configured service root using documented Go `URL.JoinPath`/`EscapedPath`; preserve bare-origin behavior, auth headers, transport/TLS, and safe status/not-found classifications. Focused integration and full Go tests/vet/build passed; no transport/auth/response-policy changes.
+- Verify: `go test ./internal/integration -count=1` followed by full Go tests/vet/build. Scope: shared integration client and focused regression tests. No live requests/configuration/deploy changes.
+
+## Task 30: Prefix Deployment Guidance And Verification
+
+- [x] Update configuration, Unit Lambung sync, and Portainer guidance with prefix-aware URLs, status interpretation, and deployment/verification limits. Existing paths on other integrations are now honored; review these before rollout. No live requests/configuration/token/TLS changes.
+- [ ] Review correctness/security and run Go tests/vet/build plus available Docker checks. Do not claim production token/transport resolution from the routing fix alone.
+- Verify: source/documentation consistency and full test results; report unavailable tooling. Dependencies: Task 29.
