@@ -98,6 +98,9 @@ func assertServiceSQLRejected(t *testing.T, tx *sqlx.Tx, code string, query stri
 
 func TestSPPServiceMigrationRejectsForgedSourcesPostgres(t *testing.T) {
 	tx := serviceSchemaTestTransaction(t)
+	if _, err := tx.Exec(`INSERT INTO unit_snapshot(lambung_unit_id,no_lambung,no_polisi,synced_at) VALUES(2,'SAMT120','MASTER TWO',NOW())`); err != nil {
+		t.Fatal(err)
+	}
 	out := sppFixtureMovement(t, tx, DirectionOut, "", OutFillingShed, "SPP-001", "C400")
 	arrival := sppFixtureMovement(t, tx, DirectionIn, InServiceAndRepair, "", "SPP-001", "C400")
 	sppFixtureCycle(t, tx, out, arrival)
@@ -117,6 +120,7 @@ func TestSPPServiceMigrationRejectsForgedSourcesPostgres(t *testing.T) {
 		`{"customer_id":"OTHER"}`,
 		`{"spp_number":"OTHER"}`,
 		`{"driver_id":42}`,
+		`{"lambung_unit_id":2,"no_lambung_snapshot":"SAMT120"}`,
 	} {
 		assertServiceSQLRejected(t, tx, "23514", clone, out, shape, arrival)
 	}
@@ -143,4 +147,38 @@ func TestSPPServiceMigrationEmptyDowngradePostgres(t *testing.T) {
 	 SELECT (jsonb_populate_record(NULL::movement_transactions,
 	     to_jsonb(m) || jsonb_build_object('transaction_id', transaction_id+100,
 	     'idempotency_key',gen_random_uuid()))).* FROM movement_transactions m WHERE transaction_id=$1`, out)
+}
+
+func TestSPPServiceMigrationPreservesExistingServicePostgres(t *testing.T) {
+	tx := serviceSchemaTestTransaction(t)
+	down, err := os.ReadFile(filepath.Join("..", "..", "migrations", "000006_add_spp_service_continuations.down.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(string(down)); err != nil {
+		t.Fatal(err)
+	}
+	out := sppFixtureMovement(t, tx, DirectionOut, "", OutFillingShed, "SPP-001", "C400")
+	arrival := sppFixtureMovement(t, tx, DirectionIn, InServiceAndRepair, "", "", "")
+	sppFixtureCycle(t, tx, out, arrival)
+	if _, err := tx.Exec(`UPDATE unit_snapshot SET current_transaction_id=$1 WHERE lambung_unit_id=1`, arrival); err != nil {
+		t.Fatal(err)
+	}
+	up, err := os.ReadFile(filepath.Join("..", "..", "migrations", "000006_add_spp_service_continuations.up.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(string(up)); err != nil {
+		t.Fatal(err)
+	}
+	var unchanged bool
+	if err := tx.Get(&unchanged, `SELECT COUNT(*)=2 AND bool_and(resumed_from_service_transaction_id IS NULL) FROM movement_transactions`); err != nil || !unchanged {
+		t.Fatal("upgrade must not backfill or rewrite existing history")
+	}
+	resumed := sppFixtureMovement(t, tx, DirectionOut, "", OutCustomer, "SPP-001", "C400")
+	var source int64
+	if err := tx.Get(&source, `SELECT resumed_from_service_transaction_id FROM movement_transactions WHERE transaction_id=$1`, resumed); err != nil || source != arrival {
+		t.Fatal("trustworthy pre-migration Service must remain resumable")
+	}
+	assertServiceSQLRejected(t, tx, "P0001", string(down))
 }
