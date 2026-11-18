@@ -43,6 +43,7 @@ func workshopLookupHandler(lookup DocumentLookup) gin.HandlerFunc {
 //
 // @Summary Look up a scanned SPP
 // @Description Returns document data and backend-derived allowedOutDestinations. An empty array prevents a new SPP OUT but does not invalidate a returning-IN lookup. Submit always revalidates current eligibility.
+// @Description A trustworthy current Service return can resume the same canonical SPP/customer to CUSTOMER or FILLING_SHED_KUIN. Gantungan remains CUSTOMER-only; a new unused SPP can go to Filling Shed. Kosongan completion, missing/conflicting cycle correlation, and unrelated used SPPs cannot be bypassed. No client continuation flag.
 // @Description Accepts an ID-owner reference (123-example), splitting on the first hyphen and encoding SAOS id and owner separately. Echoes the reference as sppNumber for submit, but eligibility uses the canonical SAOS trans_no. Malformed references return 400 INVALID_DOCUMENT_QUERY.
 // @Description Returns 404 SPP_NOT_FOUND for an empty/null successful SAOS result, or 404 UNIT_NOT_FOUND for an unresolved document unit. Conflicting document projections return 422; missing/malformed data and integration failures return 500.
 // @Description A missing/null/blank SAOS unit_name returns 422 DOCUMENT_VALIDATION_FAILED with: Kode Unit Lambung tidak tersedia pada data SPP dari SAOS. Hubungi operasional untuk memeriksa data unit. This is not 404 UNIT_NOT_FOUND.

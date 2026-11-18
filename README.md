@@ -45,7 +45,9 @@ An `IN` movement requires exactly one category:
 - `WAITING_FOR_DELIVERY_TO_CUSTOMER`
 - `SERVICE_AND_REPAIR_MAINTENANCE`
 
-`WAITING_FOR_DELIVERY_TO_CUSTOMER` retains the unit's active SPP. Any other `IN` category completes the active SPP for that movement cycle.
+`WAITING_FOR_DELIVERY_TO_CUSTOMER` retains the unit's active SPP for Customer. A trustworthy `SERVICE_AND_REPAIR_MAINTENANCE` return can resume the same canonical SPP/customer to Filling Shed or Customer, including repeated breakdowns. `WAITING_FOR_ASSIGNMENT` (Kosongan) remains terminal; invalid Service correlation cannot authorize reuse. Each IN closes its actual cycle; the next OUT starts a new one without rewriting history.
+
+Service continuation requires migration **000006** before this BE. APP payloads/permissions are unchanged; use the existing `allowedOutDestinations` array. See [APP guidance](docs/mobile-spp-service-continuation-handover.md) and [migration/rollback operations](docs/spp-service-continuation-operations.md).
 
 ### OUT
 
@@ -56,7 +58,7 @@ An `IN` movement requires exactly one category:
 | `CUSTOMER` | `sppNumber` | SAOS SPP | Requires the same active SPP and customer. |
 | `OTHER` | `driverId`, `driverName`, `note` | Active Driver result | A note is mandatory. |
 
-A unit with current status `OUT` must record `IN` before another `OUT`. For valid submissions, the service locks the unit snapshot, validates the transition and external document, inserts the immutable transaction, updates the current pointer, and commits as one PostgreSQL transaction.
+A unit with current status `OUT` must record `IN` before another `OUT`. For valid submissions, the service locks the unit snapshot, then the canonical SPP for SPP-backed IN/OUT, validates fresh eligibility, inserts the immutable transaction, updates the current pointer, and commits as one PostgreSQL transaction.
 
 Clients must send an `Idempotency-Key` UUID for every movement. Retrying the same request with the same key returns the prior result; reusing a key with a different payload is rejected.
 

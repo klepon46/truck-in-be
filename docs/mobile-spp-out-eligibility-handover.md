@@ -28,12 +28,13 @@ The array is always present for a successful SPP lookup. Its only possible entri
 | --- | --- |
 | IN Gantungan, scanned SPP and stable customer code match the trusted departure, and SPP is not completed | `["CUSTOMER"]` |
 | IN Gantungan, but SPP/customer does not match or trusted cycle correlation is missing | `[]` |
-| IN Kosongan or Service, SPP unused for Filling Shed and not completed | `["FILLING_SHED_KUIN"]` |
+| IN Service, same canonical SPP/stable customer through its trustworthy completed cycle, not terminal | `["CUSTOMER", "FILLING_SHED_KUIN"]` |
+| IN Kosongan or Service, genuinely new unused/uncompleted SPP | `["FILLING_SHED_KUIN"]` |
 | No movement history, SPP unused/uncompleted | `["FILLING_SHED_KUIN"]` |
 | Current OUT | `[]` |
 | Used/completed SPP not eligible for the requested new departure | `[]` |
 
-BE reads current movement state through `unit_snapshot.current_transaction_id`. Active SPP/customer is taken from the OUT departure linked to that current Gantungan IN by its completed cycle, not a random historical OUT. Customer display-name changes do not cause a mismatch when the stable `customerId` code remains unchanged.
+BE reads current movement state through `unit_snapshot.current_transaction_id`. Active SPP/customer is taken from the OUT departure linked to that current Gantungan/Service IN by its completed cycle, not a random historical OUT. Customer display-name changes do not cause a mismatch when the stable `customerId` code remains unchanged. Service can repeat; keep its actual category and each separate cycle. Kosongan remains terminal. A Customer-only historical SPP is not a new unused SPP.
 
 Legacy Gantungan data without trustworthy cycle correlation fails closed with `[]`. Do not guess its SPP from history or silently rewrite audit records; operations must review missing/corrupt legacy correlation separately.
 
@@ -67,8 +68,8 @@ Lookup adds no movement, current-status-pointer, document reservation, cycle, or
 
 ## Deployment And Verification
 
-- Deploy the updated BE **before** releasing mobile destination filtering. No new database migration or permission is required by eligibility; the existing application migrations must already be applied.
-- Verify Gantungan offers only Customer, Kosongan/Service offers only Filling Shed for unused SPP, current OUT still allows an IN lookup, and missing/empty arrays are handled differently.
+- Apply migration **000006** before this BE, then release/verify APP filtering. No new permission or APP request field. See [Service APP guidance](mobile-spp-service-continuation-handover.md) and [operations guidance](spp-service-continuation-operations.md).
+- Verify Service offers both destinations for its trusted same SPP/customer, Gantungan only Customer, Kosongan/Service only Filling Shed for new unused SPP, current OUT still allows an IN lookup, and missing/empty arrays are handled differently.
 - Verify changing SPP clears an invalid old destination; a stale response cannot overwrite a newer lookup.
 - Verify status changes after lookup are handled from submit errors and ambiguous network retries retain the original request/key.
 - No live test movements should be created without explicit approval. BE query tests use isolated PostgreSQL transactions and roll back every fixture.

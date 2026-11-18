@@ -53,6 +53,10 @@ Backend terbaru selalu menyertakan `allowedOutDestinations` sebagai array, terma
 ```
 
 ```json
+["CUSTOMER", "FILLING_SHED_KUIN"]
+```
+
+```json
 []
 ```
 
@@ -62,12 +66,13 @@ Backend terbaru selalu menyertakan `allowedOutDestinations` sebagai array, terma
 | --- | --- |
 | IN Gantungan, SPP aktif dan kode customer cocok, lifecycle masih valid | `["CUSTOMER"]` |
 | IN Gantungan tetapi SPP/customer tidak cocok atau cycle tidak tepercaya | `[]` |
-| IN Kosongan atau Service dengan SPP yang belum dipakai untuk Filling Shed dan belum selesai | `["FILLING_SHED_KUIN"]` |
+| IN Servis, canonical SPP/customer sama dari completed cycle terkait dan belum terminal | `["CUSTOMER", "FILLING_SHED_KUIN"]` |
+| IN Kosongan atau Service dengan SPP baru yang benar-benar belum digunakan dan belum selesai | `["FILLING_SHED_KUIN"]` |
 | Belum ada movement dengan SPP yang masih layak | `["FILLING_SHED_KUIN"]` |
 | Unit sedang OUT | `[]` |
 | Tidak ada departure baru yang memenuhi aturan dokumen/lifecycle | `[]` |
 
-BE menggunakan movement aktif dan departure yang terhubung melalui cycle IN Gantungan tersebut, bukan sembarang histori OUT. Perubahan nama customer dengan kode customer yang tetap sama tidak menggagalkan kecocokan. Data lama tanpa cycle tepercaya tidak ditebak atau diperbaiki otomatis oleh APP.
+BE menggunakan movement aktif dan departure yang terhubung melalui cycle IN Gantungan/Servis tersebut, bukan sembarang histori OUT. Perubahan nama customer dengan kode customer yang tetap sama tidak menggagalkan kecocokan. Data lama tanpa cycle tepercaya tidak ditebak atau diperbaiki otomatis oleh APP. Servis berulang boleh dilanjutkan dengan korelasi valid; Kosongan tetap terminal. APP tidak mengirim flag continuation atau referensi sumber Servis.
 
 ## 4. Perubahan DTO dan State APP
 
@@ -167,10 +172,11 @@ UnitLog hanya mencatat lintasan keluar/masuk pool:
 
 ## 11. Deployment dan Acceptance Checklist
 
-Deploy BE yang mendukung array ini sebelum merilis filtering APP. Fitur eligibility tidak membutuhkan permission atau migration database baru.
+Terapkan migration **000006** sebelum BE kelanjutan Servis, lalu verifikasi/rilis APP. Permission dan payload tetap. Panduan mandiri terbaru: [kelanjutan setelah Servis](mobile-spp-service-continuation-handover.md).
 
 - [ ] Gantungan yang eligible hanya menampilkan Customer.
-- [ ] Kosongan/Service yang eligible hanya menampilkan Filling Shed.
+- [ ] Servis dengan SPP/customer terkait menawarkan Customer dan Filling Shed.
+- [ ] Kosongan/Service dengan SPP baru yang benar-benar belum digunakan hanya menampilkan Filling Shed.
 - [ ] Array kosong menonaktifkan OUT baru, tetapi tidak memblokir IN atau pending retry.
 - [ ] Field hilang/null tidak dianggap sebagai izin untuk kedua tujuan.
 - [ ] Lookup dokumen baru membersihkan selection yang tidak valid; respons lama tidak menimpa form terbaru.

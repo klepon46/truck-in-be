@@ -1,5 +1,7 @@
 # BE Agent Prompt: SPP OUT Destination Eligibility
 
+> Historical prompt: the Service-only-Filling-Shed and no-migration statements below are superseded by approved Service continuation. Apply migration 000006; trusted current Service can resume the same canonical SPP/customer to both SPP destinations. Gantungan stays Customer-only, Kosongan terminal, and genuinely unused new SPP Filling-Shed-only. See [current operations/design guidance](spp-service-continuation-operations.md).
+
 > Policy update: references below to preserving police checks apply to WO only. SPP now ignores SAOS police text/absence and police-only duplicate differences, using master Unit Lambung for lookup/new movement police. Required unit matching/active resolution and all eligibility rules remain unchanged. See [the current APP/BE policy](mobile-spp-master-police-handover.md).
 
 Extend UnitLog's SPP lookup so Android can restrict OUT destinations based on authoritative backend eligibility.
