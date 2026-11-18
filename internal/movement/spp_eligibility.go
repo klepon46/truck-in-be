@@ -18,6 +18,7 @@ type sppEligibilityState struct {
 	ActiveCustomerID     *string   `db:"active_customer_id"`
 	FillingShedUsed      bool      `db:"filling_shed_used"`
 	SPPCompleted         bool      `db:"spp_completed"`
+	PriorSPPUsed         bool      `db:"prior_spp_used"`
 }
 
 // One SELECT keeps status, cycle correlation, and lifecycle facts in one snapshot.
@@ -30,32 +31,15 @@ SELECT u.lambung_unit_id, u.no_lambung, u.no_polisi, u.current_transaction_id,
            SELECT 1 FROM movement_transactions used
            WHERE used.spp_number = $2 AND used.out_destination = 'FILLING_SHED_KUIN'
        ) AS filling_shed_used,
+       unitlog_spp_completed($2) AS spp_completed,
        EXISTS (
-           SELECT 1 FROM movement_transactions history
-           LEFT JOIN movement_cycles history_cycle
-             ON history_cycle.out_transaction_id = history.transaction_id
-            AND history_cycle.lambung_unit_id = history.lambung_unit_id
-           LEFT JOIN movement_transactions returned
-             ON returned.transaction_id = history_cycle.in_transaction_id
-            AND returned.lambung_unit_id = history.lambung_unit_id AND returned.direction = 'IN'
-           WHERE history.spp_number = $2 AND (
-               (history.direction = 'IN' AND history.in_category <> 'WAITING_FOR_DELIVERY_TO_CUSTOMER')
-               OR (history.direction = 'OUT' AND history.out_destination IN ('FILLING_SHED_KUIN', 'CUSTOMER')
-                   AND returned.in_category <> 'WAITING_FOR_DELIVERY_TO_CUSTOMER')
-           )
-       ) AS spp_completed
+           SELECT 1 FROM movement_transactions used WHERE used.spp_number = $2
+       ) AS prior_spp_used
 FROM unit_snapshot u
 LEFT JOIN movement_transactions current_m
   ON current_m.transaction_id = u.current_transaction_id AND current_m.lambung_unit_id = u.lambung_unit_id
-LEFT JOIN movement_cycles active_cycle
-  ON active_cycle.in_transaction_id = current_m.transaction_id AND active_cycle.lambung_unit_id = u.lambung_unit_id
- AND active_cycle.completed_at IS NOT NULL
- AND current_m.direction = 'IN' AND current_m.in_category = 'WAITING_FOR_DELIVERY_TO_CUSTOMER'
-LEFT JOIN movement_transactions departure
-  ON departure.transaction_id = active_cycle.out_transaction_id AND departure.lambung_unit_id = u.lambung_unit_id
- AND departure.direction = 'OUT' AND departure.out_destination IN ('FILLING_SHED_KUIN', 'CUSTOMER')
- AND (current_m.spp_number IS NULL OR current_m.spp_number = departure.spp_number)
- AND current_m.work_order_number IS NULL AND current_m.driver_id IS NULL
+LEFT JOIN movement_spp_return_context departure
+  ON departure.in_transaction_id = current_m.transaction_id AND departure.lambung_unit_id = u.lambung_unit_id
 WHERE u.no_lambung = $1 AND u.is_active = TRUE`
 
 func readSPPState(ctx context.Context, query queryer, noLambung, number string) (sppEligibilityState, error) {
@@ -79,8 +63,10 @@ func validateSPPDeparture(state sppEligibilityState, destination, number string,
 	if err := ValidateTransition(Status{Direction: state.Direction, InCategory: state.InCategory}, DirectionOut, "", destination); err != nil {
 		return err
 	}
-	if destination == OutFillingShed {
-		if state.FillingShedUsed || state.SPPCompleted {
+	serviceContinuation := state.Direction == DirectionIn && state.InCategory == InServiceAndRepair &&
+		state.ActiveSPP != nil && *state.ActiveSPP == number
+	if destination == OutFillingShed && !serviceContinuation {
+		if state.PriorSPPUsed || state.FillingShedUsed || state.SPPCompleted {
 			return ErrSPPUsed
 		}
 		return nil
@@ -95,7 +81,7 @@ func validateSPPDeparture(state sppEligibilityState, destination, number string,
 }
 
 func allowedSPPOutDestinations(state sppEligibilityState, number string, document Document) []string {
-	allowed := make([]string, 0, 1)
+	allowed := make([]string, 0, 2)
 	for _, destination := range []string{OutCustomer, OutFillingShed} {
 		if validateSPPDeparture(state, destination, number, document) == nil {
 			allowed = append(allowed, destination)

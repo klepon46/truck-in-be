@@ -25,7 +25,36 @@ func TestSPPOutEligibilityPolicy(t *testing.T) {
 		{name: "missing customer code", adjust: func(s *sppEligibilityState, _ *Document) { s.ActiveCustomerID = nil }, want: []string{}},
 		{name: "legacy Gantungan without trusted cycle", adjust: func(s *sppEligibilityState, _ *Document) { s.ActiveSPP = nil }, want: []string{}},
 		{name: "Kosongan unused SPP", adjust: func(s *sppEligibilityState, _ *Document) { s.InCategory = InWaitingForAssignment }, want: []string{OutFillingShed}},
-		{name: "Service unused SPP", adjust: func(s *sppEligibilityState, _ *Document) { s.InCategory = InServiceAndRepair }, want: []string{OutFillingShed}},
+		{name: "Service unused SPP", adjust: func(s *sppEligibilityState, _ *Document) {
+			s.InCategory = InServiceAndRepair
+			s.ActiveSPP = nil
+			s.ActiveCustomerID = nil
+		}, want: []string{OutFillingShed}},
+		{name: "Service continues used SPP to either destination", adjust: func(s *sppEligibilityState, _ *Document) { s.InCategory = InServiceAndRepair; s.FillingShedUsed = true }, want: []string{OutCustomer, OutFillingShed}},
+		{name: "Service continues matching SPP before first Filling Shed", adjust: func(s *sppEligibilityState, _ *Document) { s.InCategory = InServiceAndRepair }, want: []string{OutCustomer, OutFillingShed}},
+		{name: "Service new SPP remains Filling Shed only", adjust: func(s *sppEligibilityState, _ *Document) {
+			s.InCategory = InServiceAndRepair
+			s.ActiveSPP = pointer("OTHER-SPP")
+		}, want: []string{OutFillingShed}},
+		{name: "Service cannot reuse unrelated used SPP", adjust: func(s *sppEligibilityState, _ *Document) {
+			s.InCategory = InServiceAndRepair
+			s.ActiveSPP = pointer("OTHER-SPP")
+			s.FillingShedUsed = true
+		}, want: []string{}},
+		{name: "Service matching SPP requires customer match for both destinations", adjust: func(s *sppEligibilityState, d *Document) {
+			s.InCategory = InServiceAndRepair
+			s.FillingShedUsed = true
+			d.CustomerID = "OTHER"
+		}, want: []string{}},
+		{name: "Service unmatched Customer history is not a new SPP", adjust: func(s *sppEligibilityState, _ *Document) {
+			s.InCategory = InServiceAndRepair
+			s.ActiveSPP = nil
+			s.PriorSPPUsed = true
+		}, want: []string{}},
+		{name: "Service trusted SPP cannot switch customer before first Filling Shed", adjust: func(s *sppEligibilityState, d *Document) {
+			s.InCategory = InServiceAndRepair
+			d.CustomerID = "OTHER"
+		}, want: []string{}},
 		{name: "OUT remains usable for IN lookup", adjust: func(s *sppEligibilityState, _ *Document) { s.Direction = DirectionOut; s.InCategory = "" }, want: []string{}},
 		{name: "no history", adjust: func(s *sppEligibilityState, _ *Document) {
 			s.CurrentTransactionID = nil

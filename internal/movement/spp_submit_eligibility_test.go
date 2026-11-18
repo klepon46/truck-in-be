@@ -70,6 +70,7 @@ func TestSPPSubmitAppliesSharedEligibilityUnderLock(t *testing.T) {
 				WillReturnRows(sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi", "current_transaction_id", "direction", "in_category"}).
 					AddRow(7, "SAMT119", "DA 1234 AB", 20, "IN", test.category))
 			mock.ExpectQuery("SELECT m.transaction_id").WillReturnRows(sqlmock.NewRows(transactionCycleColumns))
+			mock.ExpectExec(`SELECT pg_advisory_xact_lock\(8105, hashtext\(\$1\)\)`).WithArgs("SPP-001").WillReturnResult(sqlmock.NewResult(0, 1))
 			expectation := mock.ExpectQuery(regexp.QuoteMeta(sppEligibilityQuery)).WithArgs("SAMT119", "SPP-001")
 			if test.readError != nil {
 				expectation.WillReturnError(test.readError)
@@ -133,6 +134,7 @@ func TestSPPSubmitStillStartsCycleForEligibleCustomer(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi", "current_transaction_id", "direction", "in_category"}).
 			AddRow(7, "SAMT119", "DA 1234 AB", 20, "IN", InWaitingForDelivery))
 	mock.ExpectQuery("SELECT m.transaction_id").WillReturnRows(sqlmock.NewRows(transactionCycleColumns))
+	mock.ExpectExec(`SELECT pg_advisory_xact_lock\(8105, hashtext\(\$1\)\)`).WithArgs("SPP-001").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(regexp.QuoteMeta(sppEligibilityQuery)).WithArgs("SAMT119", "SPP-001").
 		WillReturnRows(sqlmock.NewRows(sppStateColumns).AddRow(7, "SAMT119", "DA 1234 AB", 20, "IN", InWaitingForDelivery, "SPP-001", "CUST-1", true, false))
 	mock.ExpectQuery("INSERT INTO movement_transactions").
@@ -165,6 +167,7 @@ func TestSPPSubmitStillAllowsFirstUnusedFillingShedDeparture(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi", "current_transaction_id", "direction", "in_category"}).
 			AddRow(7, "SAMT119", "DA 1234 AB", nil, nil, nil))
 	mock.ExpectQuery("SELECT m.transaction_id").WillReturnRows(sqlmock.NewRows(transactionCycleColumns))
+	mock.ExpectExec(`SELECT pg_advisory_xact_lock\(8105, hashtext\(\$1\)\)`).WithArgs("SPP-001").WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(regexp.QuoteMeta(sppEligibilityQuery)).WithArgs("SAMT119", "SPP-001").
 		WillReturnRows(sqlmock.NewRows(sppStateColumns).AddRow(7, "SAMT119", "DA 1234 AB", nil, "", "", nil, nil, false, false))
 	mock.ExpectQuery("INSERT INTO movement_transactions").

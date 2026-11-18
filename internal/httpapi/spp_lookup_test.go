@@ -54,6 +54,9 @@ func TestSPPLookupIntegration(t *testing.T) {
 		{name: "actual fixture without movement writes", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", wantStatus: 200},
 		{name: "OUT lookup still works for returning IN", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "OUT", used: true, wantStatus: 200, wantDestinations: []string{}},
 		{name: "Gantungan matching active SPP", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForDelivery, activeSPP: "SPG-BJM-2612481", activeCustomer: "C400", used: true, wantStatus: 200, wantDestinations: []string{movement.OutCustomer}},
+		{name: "Service resumes both destinations", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "MASTER PLATE", direction: "IN", category: movement.InServiceAndRepair, activeSPP: "SPG-BJM-2612481", activeCustomer: "C400", used: true, wantStatus: 200, wantDestinations: []string{movement.OutCustomer, movement.OutFillingShed}},
+		{name: "Service cannot change customer", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "MASTER PLATE", direction: "IN", category: movement.InServiceAndRepair, activeSPP: "SPG-BJM-2612481", activeCustomer: "OTHER", used: true, wantStatus: 200, wantDestinations: []string{}},
+		{name: "Service cannot revive terminal SPP", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "MASTER PLATE", direction: "IN", category: movement.InServiceAndRepair, activeSPP: "SPG-BJM-2612481", activeCustomer: "C400", used: true, completed: true, wantStatus: 200, wantDestinations: []string{}},
 		{name: "Gantungan different active SPP", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForDelivery, activeSPP: "OTHER-SPP", activeCustomer: "C400", wantStatus: 200, wantDestinations: []string{}},
 		{name: "Gantungan customer mismatch is not a lookup error", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForDelivery, activeSPP: "SPG-BJM-2612481", activeCustomer: "OTHER-CUSTOMER", wantStatus: 200, wantDestinations: []string{}},
 		{name: "completed SPP is not offered", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForAssignment, completed: true, wantStatus: 200, wantDestinations: []string{}},
@@ -257,6 +260,7 @@ func TestSPPSubmitSnapshotsMasterPoliceInBothDirections(t *testing.T) {
 					WillReturnRows(sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi", "current_transaction_id", "direction", "in_category"}).
 						AddRow(72, "SAMT072", "MASTER PLATE", currentID, previousDirection, nil))
 				mock.ExpectQuery("SELECT m.transaction_id").WillReturnRows(sqlmock.NewRows([]string{"transaction_id"}))
+				mock.ExpectExec(`SELECT pg_advisory_xact_lock\(8105, hashtext\(\$1\)\)`).WithArgs("SPG-BJM-2612481").WillReturnResult(sqlmock.NewResult(0, 1))
 				if direction == movement.DirectionIn {
 					mock.ExpectQuery("SELECT out_destination, work_order_number, spp_number").WithArgs(int64(19)).
 						WillReturnRows(sqlmock.NewRows([]string{"out_destination", "work_order_number", "spp_number"}).AddRow(movement.OutFillingShed, nil, "SPG-BJM-2612481"))

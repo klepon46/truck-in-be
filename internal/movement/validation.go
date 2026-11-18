@@ -125,7 +125,9 @@ func ValidateTransition(status Status, direction Direction, inCategory, outDesti
 		}
 		return nil
 	}
-	if outDestination == OutCustomer {
+	// Service may resume an SPP to Customer; the shared SPP policy still
+	// requires a trustworthy same-SPP/customer cycle before authorizing it.
+	if outDestination == OutCustomer && !(status.Direction == DirectionIn && status.InCategory == InServiceAndRepair) {
 		return ErrInvalidTransition
 	}
 	return nil

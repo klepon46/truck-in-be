@@ -27,6 +27,8 @@ func TestSPPLookupReportsEligibilityWithoutBlockingIN(t *testing.T) {
 		{name: "legacy cycle unknown", direction: DirectionIn, category: InWaitingForDelivery, want: []string{}},
 		{name: "Kosongan", direction: DirectionIn, category: InWaitingForAssignment, want: []string{OutFillingShed}},
 		{name: "Service", direction: DirectionIn, category: InServiceAndRepair, want: []string{OutFillingShed}},
+		{name: "Service resumes same SPP", direction: DirectionIn, category: InServiceAndRepair, activeSPP: "SPP-001", activeCustomer: "CUST-1", used: true, want: []string{OutCustomer, OutFillingShed}},
+		{name: "Service customer mismatch", direction: DirectionIn, category: InServiceAndRepair, activeSPP: "SPP-001", activeCustomer: "OTHER", used: true, want: []string{}},
 		{name: "OUT document is still available for IN", direction: DirectionOut, used: true, want: []string{}},
 		{name: "no history", want: []string{OutFillingShed}},
 		{name: "used Filling Shed document", direction: DirectionIn, category: InWaitingForAssignment, used: true, want: []string{}},

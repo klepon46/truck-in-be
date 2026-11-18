@@ -252,6 +252,14 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 	if err := ValidateTransition(snapshot.Status, input.Direction, input.InCategory, input.OutDestination); err != nil {
 		return Transaction{}, err
 	}
+	if input.SPPNumber != "" {
+		// Same order as the insert trigger: unit snapshot, then canonical SPP.
+		// Both returns and departures serialize global completion across units.
+		// Read eligibility in the next statement for a fresh READ COMMITTED snapshot.
+		if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(8105, hashtext($1))`, input.SPPNumber); err != nil {
+			return Transaction{}, fmt.Errorf("lock canonical SPP: %w", err)
+		}
+	}
 	if input.Direction == DirectionIn && snapshot.CurrentTransactionID != nil {
 		if err := validateReturningSource(ctx, tx, *snapshot.CurrentTransactionID, input); err != nil {
 			return Transaction{}, err
@@ -274,7 +282,8 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 			if postgresError.Constraint == "movement_transactions_work_order_number_uidx" {
 				return Transaction{}, ErrWorkOrderUsed
 			}
-			if postgresError.Constraint == "movement_transactions_filling_shed_spp_number_uidx" {
+			if postgresError.Constraint == "movement_transactions_filling_shed_spp_number_uidx" ||
+				postgresError.Constraint == "movement_transactions_service_resumption_uidx" {
 				return Transaction{}, ErrSPPUsed
 			}
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -283,6 +292,10 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 			if existing, found, lookupErr := s.findByKey(ctx, s.db, idempotencyKey); lookupErr == nil && found {
 				return replay(existing, hash)
 			}
+		}
+		if errors.As(err, &postgresError) && postgresError.Code == "23514" &&
+			postgresError.Constraint == "movement_transactions_service_resumption_check" {
+			return Transaction{}, ErrSPPMismatch
 		}
 		return Transaction{}, fmt.Errorf("insert movement transaction: %w", err)
 	}

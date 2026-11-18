@@ -34,6 +34,8 @@ func TestSPPEligibilityPostgres(t *testing.T) {
 		"legacy Gantungan without cycle", "unrelated old SPP", "OUT after historical Gantungan",
 		"Gantungan returning from Customer", "used Filling Shed SPP", "completed first IN SPP", "completed legacy return",
 		"legacy Gantungan with trusted cycle", "conflicting arrival SPP",
+		"Service trusted cycle", "Service legacy trusted cycle", "Service unmatched Customer",
+		"Service different customer", "Service conflicting departure driver", "Service completed elsewhere",
 	} {
 		t.Run(name, func(t *testing.T) {
 			tx, err := db.BeginTxx(context.Background(), nil)
@@ -56,6 +58,39 @@ func TestSPPEligibilityPostgres(t *testing.T) {
 			var currentID int64
 			want := []string{}
 			switch name {
+			case "Service trusted cycle", "Service legacy trusted cycle", "Service unmatched Customer", "Service different customer", "Service conflicting departure driver", "Service completed elsewhere":
+				destination := OutFillingShed
+				if name == "Service unmatched Customer" {
+					destination = OutCustomer
+				}
+				var out int64
+				if name == "Service conflicting departure driver" {
+					if err := tx.Get(&out, `INSERT INTO movement_transactions (
+					 idempotency_key,request_hash,lambung_unit_id,no_lambung_snapshot,no_polisi_snapshot,
+					 direction,out_destination,spp_number,customer_id,driver_id,driver_name_snapshot,actor_id,actor_name_snapshot)
+					 VALUES(gen_random_uuid(),decode('00','hex'),1,'SAMT119','DA 1234 AB','OUT','FILLING_SHED_KUIN','SPP-001','C400',42,'Driver','test','Test') RETURNING transaction_id`); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					out = sppFixtureMovement(t, tx, DirectionOut, "", destination, "SPP-001", "C400")
+				}
+				number, customer := "SPP-001", "C400"
+				if name == "Service legacy trusted cycle" || name == "Service unmatched Customer" {
+					number, customer = "", ""
+				}
+				if name == "Service different customer" {
+					customer = "OTHER"
+				}
+				currentID = sppFixtureMovement(t, tx, DirectionIn, InServiceAndRepair, "", number, customer)
+				if name != "Service unmatched Customer" {
+					sppFixtureCycle(t, tx, out, currentID)
+				}
+				if name == "Service completed elsewhere" {
+					sppFixtureMovement(t, tx, DirectionIn, InWaitingForAssignment, "", "SPP-001", "C400")
+				}
+				if name == "Service trusted cycle" || name == "Service legacy trusted cycle" {
+					want = []string{OutCustomer, OutFillingShed}
+				}
 			case "no history":
 				want = []string{OutFillingShed}
 			case "Kosongan", "Service":
