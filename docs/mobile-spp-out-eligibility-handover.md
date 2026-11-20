@@ -15,7 +15,7 @@ The success response adds **one response-only field**, `allowedOutDestinations`.
     "sppNumber": "123-example",
     "customerId": "C400",
     "customerName": "Customer Name",
-    "allowedOutDestinations": ["CUSTOMER"]
+    "allowedOutDestinations": ["CUSTOMER", "FILLING_SHED_KUIN"]
   }
 }
 ```
@@ -26,23 +26,21 @@ The array is always present for a successful SPP lookup. Its only possible entri
 
 | Current movement state | Allowed SPP OUT destinations |
 | --- | --- |
-| IN Gantungan, scanned SPP and stable customer code match the trusted departure, and SPP is not completed | `["CUSTOMER"]` |
-| IN Gantungan, but SPP/customer does not match or trusted cycle correlation is missing | `[]` |
-| IN Service, same canonical SPP/stable customer through its trustworthy completed cycle, not terminal | `["CUSTOMER", "FILLING_SHED_KUIN"]` |
-| IN Kosongan or Service, genuinely new unused/uncompleted SPP | `["FILLING_SHED_KUIN"]` |
-| No movement history, SPP unused/uncompleted | `["FILLING_SHED_KUIN"]` |
+| IN Kosongan, Gantungan or Service; valid same-unit SPP/current customer, whether new or reused | `["CUSTOMER", "FILLING_SHED_KUIN"]` |
+| Same IN states, but scanned customer code is blank | `["FILLING_SHED_KUIN"]` |
+| No current movement, valid same-unit SPP | `["FILLING_SHED_KUIN"]` |
 | Current OUT | `[]` |
-| Used/completed SPP not eligible for the requested new departure | `[]` |
+| Canonical SPP has history on another unit | `[]` |
 
-BE reads current movement state through `unit_snapshot.current_transaction_id`. Active SPP/customer is taken from the OUT departure linked to that current Gantungan/Service IN by its completed cycle, not a random historical OUT. Customer display-name changes do not cause a mismatch when the stable `customerId` code remains unchanged. Service can repeat; keep its actual category and each separate cycle. Kosongan remains terminal. A Customer-only historical SPP is not a new unused SPP.
+BE reads current movement state through `unit_snapshot.current_transaction_id`. All three IN categories permit both SPP destinations, and same-unit reuse is allowed even after Kosongan. Old active-SPP/customer/completion/cycle facts are historical only, not eligibility gates. Customer uses the currently scanned nonblank `customerId`, without comparing an old customer's code. SPPs with history on another unit fail closed.
 
-Legacy Gantungan data without trustworthy cycle correlation fails closed with `[]`. Do not guess its SPP from history or silently rewrite audit records; operations must review missing/corrupt legacy correlation separately.
+Legacy Gantungan without a prior cycle does not itself block a valid same-unit SPP OUT. The backend does not fabricate a prior OUT, rewrite history, or remove cycle/duration protections; missing cycles on an actual returning IN still fail atomically.
 
 ## Critical: IN Must Remain Usable
 
 This lookup is shared by IN and OUT. A valid SPP for a unit currently OUT returns normal document data with `allowedOutDestinations: []`, so the app can still populate its returning-IN form.
 
-**Do not treat an empty OUT array as a failed document lookup, block IN because of it, or automatically switch the user's chosen direction.** Returning IN matches source type and active master unit, not WO/SPP number; incoming document and category validation still apply. An accepted different-SPP IN does not change trusted continuation requirements or automatically make either SPP eligible for OUT. See [returning-IN guidance](mobile-returning-document-handover.md).
+**Do not treat an empty OUT array as a failed document lookup, block IN because of it, or automatically switch the user's chosen direction.** Returning IN matches source type and active master unit, not WO/SPP number; incoming document and category validation still apply. Later OUT follows policy 7: same-unit SPP reuse is permitted, but APP must still follow the current array. See [current reuse guidance](mobile-spp-reuse-handover.md).
 
 UnitLog records only pool-boundary crossings. A direct `Pool → Filling Shed → Customer → Pool` journey still records one Filling Shed OUT and the returning IN; there is no extra Customer OUT outside the pool.
 
@@ -68,8 +66,8 @@ Lookup adds no movement, current-status-pointer, document reservation, cycle, or
 
 ## Deployment And Verification
 
-- Apply migration **000006** before this BE, then release/verify APP filtering. No new permission or APP request field. See [Service APP guidance](mobile-spp-service-continuation-handover.md) and [operations guidance](spp-service-continuation-operations.md).
-- Verify Service offers both destinations for its trusted same SPP/customer, Gantungan only Customer, Kosongan/Service only Filling Shed for new unused SPP, current OUT still allows an IN lookup, and missing/empty arrays are handled differently.
+- Apply migration **000007** before this BE, then release/verify APP filtering. No new permission or APP request field. See [current APP/operations guidance](mobile-spp-reuse-handover.md).
+- Verify every IN category offers both destinations for valid same-unit SPPs, including repeated use after Kosongan; foreign-unit history is blocked, current OUT still allows an IN lookup, and missing/empty arrays are handled differently.
 - Verify changing SPP clears an invalid old destination; a stale response cannot overwrite a newer lookup.
 - Verify status changes after lookup are handled from submit errors and ambiguous network retries retain the original request/key.
 - No live test movements should be created without explicit approval. BE query tests use isolated PostgreSQL transactions and roll back every fixture.

@@ -45,19 +45,19 @@ An `IN` movement requires exactly one category:
 - `WAITING_FOR_DELIVERY_TO_CUSTOMER`
 - `SERVICE_AND_REPAIR_MAINTENANCE`
 
-`WAITING_FOR_DELIVERY_TO_CUSTOMER` retains the unit's active SPP for Customer. A trustworthy `SERVICE_AND_REPAIR_MAINTENANCE` return can resume the same canonical SPP/customer to Filling Shed or Customer, including repeated breakdowns. `WAITING_FOR_ASSIGNMENT` (Kosongan) remains terminal; invalid Service correlation cannot authorize reuse. Each IN closes its actual cycle; the next OUT starts a new one without rewriting history.
+After any IN category (Kosongan, Gantungan or Service), a valid same-unit SPP can depart to Filling Shed or Customer. The same SPP may be reused repeatedly, including after Kosongan; old active-SPP/customer/completion/cycle facts no longer gate OUT. Customer still needs a nonblank customer code from the scanned document, and SPP history on another unit fails closed. Each IN closes its actual cycle; the next OUT starts a new one without rewriting history.
 
-Service continuation requires migration **000006** before this BE. APP payloads/permissions are unchanged; use the existing `allowedOutDestinations` array. See [APP guidance](docs/mobile-spp-service-continuation-handover.md) and [migration/rollback operations](docs/spp-service-continuation-operations.md).
+Apply migration **000007** before this BE; migration 000006 and existing audit links remain unchanged. APP payloads/permissions are unchanged; use the existing `allowedOutDestinations` array. See [current APP/operations guidance](docs/mobile-spp-reuse-handover.md). Schema downgrade refuses populated policy-7 audit records; never delete history to force rollback.
 
-Returning IN now matches the original OUT's **source type and unit, not its document number**: WO-A → WO-B and SPP-A → SPP-B are permitted for the same active unit. Upstream/master validation stays enforced; the original OUT/cycle departure document is not rewritten. This does not relax OUT/lifecycle/continuation rules or require another migration. See [the returning-IN APP handover](docs/mobile-returning-document-handover.md).
+Returning IN matches the original OUT's **source type and unit, not its document number**: WO-A → WO-B and SPP-A → SPP-B are permitted for the same active unit. Upstream/master validation stays enforced; the original OUT/cycle departure document is not rewritten. The later policy-7 change above separately opens SPP OUT/reuse. See [the returning-IN APP handover](docs/mobile-returning-document-handover.md).
 
 ### OUT
 
 | Destination | Required input | Driver source | Notes |
 | --- | --- | --- | --- |
 | `BENGKEL_LUAR` | `workOrderNumber` | Workshop work order | Work order must exist and can be used once. |
-| `FILLING_SHED_KUIN` | `sppNumber` | SAOS SPP | Activates the SPP for the unit. |
-| `CUSTOMER` | `sppNumber` | SAOS SPP | Requires the same active SPP and customer. |
+| `FILLING_SHED_KUIN` | `sppNumber` | SAOS SPP | Valid same-unit SPP; repeated use allowed after any IN. |
+| `CUSTOMER` | `sppNumber` | SAOS SPP | Any current IN category; valid same-unit SPP and nonblank scanned customer code. |
 | `OTHER` | `driverId`, `driverName`, `note` | Active Driver result | A note is mandatory. |
 
 A unit with current status `OUT` must record `IN` before another `OUT`. For valid submissions, the service locks the unit snapshot, then the canonical SPP for SPP-backed IN/OUT, validates fresh eligibility, inserts the immutable transaction, updates the current pointer, and commits as one PostgreSQL transaction.

@@ -47,6 +47,8 @@ Setelah backup/database dan change window disetujui, buat container **one-off** 
 
 Mengubah command saja tanpa override entrypoint tidak cukup: entrypoint image default adalah `/app/server`. Migration ini menyentuh database PROD dan harus dijalankan operator secara sengaja, bukan sebagai bagian publish Jenkins.
 
+Untuk rilis SPP reuse, pause movement writers/semua replica dan pastikan schema sampai **000007** sebelum BE baru. Jika database masih versi 6, migration 000007 tetap perlu diterapkan; jangan mengedit 000006. Downgrade 7→6 menolak bila sudah ada SPP OUT policy 7, termasuk Customer. Jangan hapus histori/force version untuk memaksanya. Lihat [handover policy 7 dan batas rollback](mobile-spp-reuse-handover.md); panduan ini tidak menyatakan migration/deploy sudah dilakukan.
+
 ## 4. Buat Ulang Container Server
 
 Pada container aplikasi PROD, gunakan **Duplicate/Edit** atau edit konfigurasi stack sumber jika container dikelola oleh stack:

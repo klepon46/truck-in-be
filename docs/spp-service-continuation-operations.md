@@ -1,43 +1,43 @@
-# SPP Service Continuation — Operations and Design
+# SPP Reuse and Service Audit — Operations and Design
 
 ## Scope and decision
 
-Support a genuine breakdown return: OUT SPP-A → IN Service → OUT Filling Shed or Customer with SPP-A, including repeated Service returns. Gantungan stays Customer-only; Kosongan completes the prior SPP. A genuinely new unused SPP still permits Filling Shed.
+Policy 7 permits Filling Shed or Customer after every IN category and repeated same-unit SPP use, including after Kosongan. Prior SPP/customer/completion/cycle correlation no longer gates OUT. Customer still requires a nonblank scanned customer code, upstream/master-unit matching remains strict, and canonical SPP history on another unit blocks OUT. No-current-movement OUT remains Filling-Shed-only. See [the current APP/operations handover](mobile-spp-reuse-handover.md).
 
-Do not relabel Service as Gantungan, edit audit snapshots, or search arbitrary old OUT rows for justification. Existing Service history qualifies only through its own trustworthy completed same-unit cycle, matching canonical SPP and nonblank stable customer. Nullable legacy IN document/customer snapshots may use a consistent departure; contradictions or WO/driver identity conflicts fail closed. Customer display names are not identifiers.
+Do not relabel Service as Gantungan or edit audit snapshots. Genuine Service audit links still derive from a trustworthy completed same-unit cycle with matching canonical SPP/customer. Nullable legacy IN snapshots may use a consistent departure; contradictory snapshots do not fabricate links. Such provenance is retained for audit, not required for reuse.
 
-Returning IN now permits a different WO/SPP number for the same source type and unit, without an additional migration. Such an IN legitimately closes its original cycle but remains excluded from trusted same-SPP continuation when documents conflict. No OUT lifecycle is reassigned; existing completion rules remain in force. The application locks both original and incoming canonical SPP keys in deterministic numeric order before closure. See [returning-IN guidance](mobile-returning-document-handover.md).
+Returning IN permits a different WO/SPP number for the same source type and unit. It closes its original cycle without reassigning the original departure document. A later valid same-unit SPP OUT does not need to match that IN's number/customer. The application locks both original and incoming canonical SPP keys in deterministic numeric order before closure. See [returning-IN guidance](mobile-returning-document-handover.md).
 
 ## Database boundary
 
-Migration `000006_add_spp_service_continuations` adds:
+Deployed migration `000006_add_spp_service_continuations` is unchanged. Its retained audit foundation includes:
 
 - Nullable FK `movement_transactions.resumed_from_service_transaction_id`, derived/verified by a BEFORE INSERT trigger. It is internal audit metadata, not an APP/API request field. No historical backfill.
-- `movement_spp_return_context` and `unitlog_spp_completed(TEXT)`, shared by lookup, locked submit, and trigger validation. Trusted Service is nonterminal; untrusted Service history is not automatically exempted.
-- One normal Filling Shed departure per canonical SPP, with only validated Service resumptions exempted. One departure, of either SPP destination, per source Service arrival.
+- `movement_spp_return_context` and `unitlog_spp_completed(TEXT)`; historical completion facts remain queryable but no longer block SPP OUT.
+- One linked departure, of either SPP destination, per source Service arrival, with FK/shape/source uniqueness protected.
 - Completed cycles cannot be updated/deleted; normal open-to-completed closure still works. Immutable movements/durations remain protected.
 
-Why not simply drop uniqueness: that would allow unrelated reuse with no Service evidence. Why not an APP flag: the database/backend must establish provenance and defend concurrency. Why not rewrite history: it destroys the actual breakdown/category/duration evidence.
+Migration `000007_allow_same_unit_spp_reuse` removes normal Filling Shed SPP uniqueness, replaces the insert trigger's old continuation rejection, and adds shared `unitlog_spp_used_by_other_unit(TEXT, BIGINT)` validation to lookup/submit/trigger. It derives nullable internal `spp_departure_policy_version = 7` on each new SPP OUT, without backfill or an API field. Genuine Service links and immutable history protections remain.
 
-Lock order: **unit snapshot → canonical-SPP advisory transaction lock** (`pg_advisory_xact_lock(8105, hashtext(spp))`). Both IN and OUT take it; Go reads eligibility in a subsequent READ COMMITTED statement after waiting. The insert trigger uses the same order. Hash collisions may serialize unrelated SPPs but do not authorize reuse. Different units sharing legacy SPP history cannot race a terminal return against continuation. Lookup is advisory/read-only, not a reservation.
+Why not only drop the index: backend/trigger rejection would still enforce the old policy, and cross-unit ownership would be unprotected. Why not an APP flag: policy, audit derivation and concurrency belong in the backend/database. Why not rewrite history: it destroys actual category/document/duration evidence. The version marker distinguishes new-policy departures so downgrade cannot silently discard their audit.
 
-The policy separately checks any prior SPP use. A historical Customer-only OUT is not a genuinely new unused SPP simply because no Filling Shed row exists.
+Lock order: **unit snapshot → canonical-SPP advisory transaction lock** (`pg_advisory_xact_lock(8105, hashtext(spp))`). Both IN and OUT take it; Go reads eligibility in a subsequent READ COMMITTED statement after waiting. The insert trigger uses the same order. Hash collisions may serialize unrelated SPPs but do not authorize cross-unit use. History checks include Customer-only history. Lookup is advisory/read-only, not a reservation.
 
 ## Controlled rollout — not performed by implementation
 
 1. Back up the target database, record its migration version/dirty state, and rehearse this release on a disposable restored copy. Never use production DSNs for tests.
 2. Pause movement writers/all replicas; coordinate a maintenance window. This transactional migration changes an index and takes table locks; it is not a zero-downtime/concurrent index build.
-3. Apply migrations through **000006** once using the established environment migration runner, then verify schema/indexes and migration version.
-4. Deploy this BE across all replicas before reopening writes. New BE lookup depends on the view/function. Avoid mixed versions: old BE may still reject valid Service continuations and lacks the early canonical lock.
+3. Apply migrations through **000007** once using the established environment migration runner, then verify schema/indexes and migration version.
+4. Deploy this BE across all replicas before reopening writes. New BE lookup depends on the new function. Avoid mixed versions: old BE still restricts reuse and may fail against new-policy history.
 5. Verify health and nonproduction acceptance before reopening operations. APP uses the existing lookup and dynamic destination array; no new flag, permission, Consul setting, upstream endpoint, or service token.
 
 Production remains publish-only in Jenkins; migration/deployment belong to the manual Portainer handoff. This feature does not execute either.
 
 ## Rollback limits
 
-Prefer stopping writers and rolling back application image while **retaining schema 000006**. The old image can read explicit existing columns, but will conservatively reject new Service continuations and may classify earlier Service history as completed. Do not claim behavioral equivalence.
+Stop writers before considering rollback and retain schema **000007** unless an approved, compatible downgrade is possible. Older images restrict reuse and may fail on new-policy history; check the actual candidate rather than assuming image rollback is safe or behaviorally equivalent.
 
-Schema downgrade is permitted only with no populated continuation links and a compatible application version. The down migration takes an ACCESS EXCLUSIVE writer-excluding lock **before** checking; it refuses if even a Customer-only continuation exists. It never deletes history to restore the old Filling Shed uniqueness. Coordinate offline rollback; do not force a migration version or disable triggers after a refusal. Inspect dirty state and follow the approved migration recovery process without discarding audit data.
+Downgrade 7→6 takes an ACCESS EXCLUSIVE writer-excluding lock **before** checking and refuses if any policy-7 departure exists, even a Customer-only OUT. With no such rows it restores the version-6 trigger/index while retaining old Service links. Downgrade 6→5 separately refuses populated Service links. Neither deletes history. Coordinate offline rollback; do not force a migration version or disable triggers after a refusal. Inspect dirty state and follow the approved migration recovery process without discarding audit data.
 
 ## Local verification
 
@@ -52,4 +52,4 @@ go vet ./...
 go build ./...
 ```
 
-Schema fixtures roll back; committed lifecycle/concurrency fixtures live in generated schemas removed after each test. Tests cover repeated Service/Filling/Customer/Gantungan/Kosongan, original-reference hashes and coordinates, replay, immutable earlier snapshots, normal/source uniqueness, forged markers, existing Service upgrade, terminal cross-unit locking, and downgrade racing a Customer continuation. No live movements are required.
+Schema fixtures roll back; committed lifecycle/concurrency fixtures live in generated schemas removed after each test. Tests cover repeated Filling Shed/Customer after every IN category, changed documents/customer snapshots, reference hashes/coordinates/replay, immutable history, preserved Service source uniqueness, forged markers, legacy upgrade, direct-SQL cross-unit claim races, and downgrade racing its first policy-7 Customer audit. Version-6 schema regressions remain pinned to version 6. Standalone migration batches are tested without a test-supplied outer transaction. No live movements are required.

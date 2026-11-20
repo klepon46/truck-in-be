@@ -97,7 +97,7 @@ UnitLog records only crossings of the pool boundary; it does not record movement
 - **Direct route:** `Pool → Filling Shed → Customer → Pool` records `OUT FILLING_SHED_KUIN` when leaving the pool, then records the returning `IN` with the same SPP when the unit returns. Do not create a synthetic IN/OUT transaction for Filling Shed → Customer.
 - **Return as Gantungan:** `Pool → Filling Shed → Pool → Customer → Pool` records `OUT FILLING_SHED_KUIN`, then `IN WAITING_FOR_DELIVERY_TO_CUSTOMER` with the same SPP. The unit can then submit `OUT CUSTOMER` with that same SPP; when it returns, submit `IN` with the Customer departure's same SPP.
 
-`OUT CUSTOMER` records a departure **from the pool** after Gantungan or a trustworthy Service return, with the same uncompleted canonical SPP and stable customer code from that current IN's correlated departure cycle. Service also permits returning to Filling Shed, including repeated breakdowns; Gantungan remains Customer-only and Kosongan terminal. See [Service continuation guidance](mobile-spp-service-continuation-handover.md). Present destinations only when returned by `allowedOutDestinations`; UnitLog still revalidates submit and may reject stale eligibility with `422 INVALID_TRANSITION`, `422 DOCUMENT_VALIDATION_FAILED`, or `409 SPP_USED`.
+`OUT CUSTOMER` records a departure **from the pool** after any IN category. Policy 7 permits repeated same-unit SPP use to Customer or Filling Shed, including after Kosongan; prior SPP/customer/cycle correlation is not required. Customer still needs a nonblank scanned customer code, and cross-unit SPP history remains blocked. See [current reuse guidance](mobile-spp-reuse-handover.md). Present destinations only when returned by `allowedOutDestinations`; UnitLog still revalidates submit and may reject stale eligibility with `422 INVALID_TRANSITION`, `422 DOCUMENT_VALIDATION_FAILED`, or `409 SPP_USED`.
 
 ### Returning document-backed IN
 
@@ -112,7 +112,7 @@ UnitLog records only crossings of the pool boundary; it does not record movement
 
 A returning IN must keep the **same source type and unit** as the unit's open OUT: WO→WO, SPP→SPP, OTHER→OTHER. The WO/SPP number may differ. BE validates the scanned WO `vehicle_no` / SPP `unit_name` against the same active master unit and checks ownership of the original departure. Cross-type returns, another vehicle, invalid upstream documents, or OTHER used to bypass a document departure still fail. WO police validation remains unchanged.
 
-For SPP, the IN stores the canonical `trans_no` resolved from its actual scanned reference, even when different from OUT. The same open cycle closes, but the original OUT and its departure fields keep the original document. Do not rewrite history or guess a reference from a displayed canonical number. Accepting IN does not grant new OUT/Service continuation eligibility; mismatched SPPs remain excluded from trusted continuation. See [the returning-IN handover](mobile-returning-document-handover.md).
+For SPP, the IN stores the canonical `trans_no` resolved from its actual scanned reference, even when different from OUT. The same open cycle closes, but the original OUT and its departure fields keep the original document. Do not rewrite history or guess a reference from a displayed canonical number. A later OUT follows policy 7 and fresh lookup eligibility, not old same-SPP continuation restrictions. See [the returning-IN handover](mobile-returning-document-handover.md).
 
 ### OTHER in Either Direction
 

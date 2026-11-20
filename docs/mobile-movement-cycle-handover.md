@@ -97,7 +97,7 @@ OUT transaction #123, cycle #50
 
 The backend is the authority. The mobile UI may disable an obviously invalid action using the unit's latest status, but it must still handle a `422 INVALID_TRANSITION` response because another scan may have changed the state first.
 
-For SPP OUT selection, use the lookup's `allowedOutDestinations` rather than inferring active SPP from historical transactions or display fields. BE resolves the current Gantungan IN's correlated departure cycle; legacy data with no trusted cycle returns an empty OUT array. This does not block returning IN. See [the SPP eligibility handover](mobile-spp-out-eligibility-handover.md).
+For SPP OUT selection, use the lookup's `allowedOutDestinations`, not historical display fields. Policy 7 permits both destinations after every IN category and repeated same-unit SPP use, including after Kosongan; a trusted prior cycle is not required for OUT eligibility. Cross-unit SPP history remains blocked and Customer needs a nonblank scanned customer code. `[]` does not itself block returning IN. Each reuse still starts a separate cycle; see [the reuse handover](mobile-spp-reuse-handover.md).
 
 ## Test Checklist
 

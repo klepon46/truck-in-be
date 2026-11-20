@@ -65,7 +65,7 @@ Kategori IN lainnya tetap sesuai kontrak yang sudah berlaku. Contoh ini bukan iz
 ## Validasi yang Tetap Berlaku
 
 - Unit harus lolos validasi snapshot aktif dan transisi harus sah; IN → IN dan OUT → OUT tetap ditolak.
-- OTHER OUT tidak dapat melewati aturan Gantungan yang hanya mengizinkan OUT Customer dengan SPP aktif.
+- OTHER OUT tetap dilarang setelah Gantungan. Policy 7 membuka Customer/Filling Shed untuk SPP valid pada unit sama, bukan OTHER.
 - Returning IN dari keberangkatan WO/SPP tetap membutuhkan jenis sumber dan unit yang sama; nomor WO/SPP boleh berbeda. OTHER tidak dapat dipakai sebagai bypass. Lihat [aturan returning IN](mobile-returning-document-handover.md).
 - WO/SPP tetap divalidasi melalui integrasinya. Flag ini tidak memengaruhi lookup, eligibility SPP, atau customer.
 - Idempotency, atomic commit/rollback, cycle, durasi, koordinat, permission, dan snapshot audit tetap berjalan.

@@ -53,11 +53,11 @@ Jangan mengganti hasil scan dengan nomor departure lama. Jangan kirim source tra
 - Tampilkan kedua dokumen sesuai konteks; jangan anggap perbedaan nomor sebagai payload invalid atau menimpa salah satunya. `cycleId` dan `departureTransactionId` tetap berasal dari BE.
 - OUT duration difinalkan saat IN berhasil; kegagalan membatalkan seluruh movement/cycle/duration/status.
 
-## Bukan pelonggaran OUT/lifecycle
+## OUT berikutnya mengikuti policy 7
 
-Menerima IN SPP-B setelah OUT SPP-A **tidak** berarti B otomatis menjadi SPP aktif, A dikoreksi menjadi B, atau SPP mana pun boleh untuk OUT berikutnya.
+Menerima IN SPP-B setelah OUT SPP-A **tidak** mengoreksi dokumen OUT A menjadi B. OUT berikutnya tetap memerlukan dokumen valid, unit sama, status IN, dan hasil eligibility terbaru.
 
-Aturan WO sekali pakai, SPP Filling Shed/reuse/completion, Customer, Gantungan dan kelanjutan Servis tidak diubah. SQL lifecycle yang ada tetap berlaku pada dokumen/cycle tersimpan; SPP berbeda pada IN/OUT tidak menjadi korelasi tepercaya untuk continuation, sehingga lookup OUT A maupun B bisa menghasilkan `[]`. Jangan mengarang aturan SPP-C untuk OUT berikutnya atau memperbaiki histori otomatis.
+Perubahan returning IN sendiri tidak menulis ulang dokumen/cycle lama. Perubahan berikutnya, policy 7, mengizinkan SPP valid pada unit sama dipakai berulang ke Filling Shed atau Customer setelah kategori IN apa pun, tanpa harus cocok dengan SPP/customer IN sebelumnya. Customer tetap memerlukan kode customer hasil scan; histori lintas unit tetap memblokir. WO sekali pakai dan batas WO/OTHER tetap berlaku. Lihat [panduan policy 7](mobile-spp-reuse-handover.md).
 
 Tetap tampilkan hanya `allowedOutDestinations` dari lookup untuk **OUT baru**. Array kosong tidak memblokir returning IN, tetapi validasi dokumen/unit/jenis sumber tetap berlaku.
 
@@ -70,14 +70,14 @@ Tetap tampilkan hanya `allowedOutDestinations` dari lookup untuk **OUT baru**. A
 
 ## Rollout dan pengujian
 
-Tidak ada field/permission/config/migration tambahan. Deploy BE ini sebelum APP mengandalkan penerimaan nomor berbeda; kebutuhan schema sebelumnya (sampai 000006) tetap berlaku. APP yang memiliki validasi lokal “nomor IN harus sama dengan OUT” perlu melepas pembatasan nomor saja, bukan jenis sumber/unit.
+Tidak ada field/permission/config tambahan. Penerimaan nomor IN berbeda sendiri tidak menambah migration, tetapi BE terbaru memerlukan schema sampai **000007** untuk policy SPP reuse. Deploy migration sebelum BE, lalu APP. APP perlu melepas validasi lokal “nomor IN harus sama dengan OUT”, bukan jenis sumber/unit.
 
-Rollback image lama mengembalikan aturan nomor sama untuk **submit baru**; replay yang sudah tersimpan tetap kompatibel. Jangan mengubah pending payload atau memutasi histori untuk memaksakan rollback.
+Image sebelum fitur returning IN berbeda nomor akan kembali mensyaratkan nomor sama untuk **submit baru**; fitur ini tidak mengubah hash/replay tersimpan. Kompatibilitas rollback BE/schema setelah policy 7 tetap harus ditinjau sesuai [batas rollback terbaru](mobile-spp-reuse-handover.md). Jangan mengubah pending payload atau memutasi histori untuk memaksakan rollback.
 
 Uji nonproduksi: WO-A→WO-B, SPP-A→SPP-B untuk semua kategori IN, jenis/unit salah ditolak tanpa write parsial, field dokumen IN/departure berbeda, cycle/durasi benar, hash/replay/koordinat tetap, dan OUT setelah SPP berbeda tetap mengikuti array BE. Tidak perlu movement live.
 
 ### Catatan backend
 
-Submit mengunci unit terlebih dahulu. IN dengan SPP berbeda kemudian mengunci kedua canonical SPP menggunakan distinct numeric advisory keys berurutan sebelum INSERT/penutupan cycle; ini menjaga serialisasi completion dan menghindari urutan lock terbalik A→B/B→A. Tidak ada perubahan trigger/index/schema.
+Submit mengunci unit terlebih dahulu. IN dengan SPP berbeda kemudian mengunci kedua canonical SPP menggunakan distinct numeric advisory keys berurutan sebelum INSERT/penutupan cycle; ini menjaga serialisasi histori dan menghindari urutan lock terbalik A→B/B→A. Policy 7 terpisah mengubah trigger/index/schema melalui migration 000007.
 
 Referensi: [PostgreSQL lock ordering](https://www.postgresql.org/docs/15/explicit-locking.html#LOCKING-DEADLOCKS), [transaction advisory locks](https://www.postgresql.org/docs/15/explicit-locking.html#ADVISORY-LOCKS), dan [evaluasi output SELECT setelah sorting](https://www.postgresql.org/docs/15/sql-select.html#SQL-SELECT-LIST).

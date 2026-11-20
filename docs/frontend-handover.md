@@ -168,7 +168,7 @@ Swagger shows every optional property in one combined schema. That is not a vali
 
 #### IN
 
-Use one category and exactly one arrival source: WO, SPP, or OTHER with selected driver and note. Returning IN keeps the original OUT's source type and active master unit, but WO/SPP numbers may differ. WO `vehicle_no` and SPP `unit_name` must resolve to that unit; upstream/master and WO police validation remain enforced. IN stores the actual scanned document, while departure fields retain the original OUT document. This does not relax new-OUT eligibility; see [the returning-IN handover](mobile-returning-document-handover.md).
+Use one category and exactly one arrival source: WO, SPP, or OTHER with selected driver and note. Returning IN keeps the original OUT's source type and active master unit, but WO/SPP numbers may differ. WO `vehicle_no` and SPP `unit_name` must resolve to that unit; upstream/master and WO police validation remain enforced. IN stores the actual scanned document, while departure fields retain the original OUT document. Later SPP OUT follows policy 7 and fresh lookup, not a same-number requirement; see [the returning-IN handover](mobile-returning-document-handover.md).
 
 ```json
 {
@@ -222,9 +222,9 @@ Available values:
 }
 ```
 
-This requires the unit's current status to be `IN - WAITING_FOR_DELIVERY_TO_CUSTOMER`. The SPP must match the unit's active SPP and the SAOS customer must match the active SPP customer. Do not send `workOrderNumber`, `driverId`, or `driverName`.
+This requires a current IN of any supported category and a valid same-unit SPP with a nonblank scanned customer code. Policy 7 permits repeated use, including after Kosongan, without matching an old SPP/customer/cycle. Cross-unit SPP history stays blocked. Do not send `workOrderNumber`, `driverId`, or `driverName`. Apply migration 000007 before this BE; see [the current reuse handover](mobile-spp-reuse-handover.md).
 
-UnitLog records only pool-boundary crossings. For a direct `Pool → Filling Shed → Customer → Pool` route, submit only `OUT - Filling Shed` on departure and the matching SPP-backed `IN` when the unit returns; do not submit a fictitious Filling Shed → Customer movement. `OUT - Customer` is used only after the unit has returned to the pool as `IN - WAITING_FOR_DELIVERY_TO_CUSTOMER` with the same active SPP.
+UnitLog records only pool-boundary crossings. For a direct `Pool → Filling Shed → Customer → Pool` route, submit only `OUT - Filling Shed` on departure and the SPP-backed `IN` when the unit returns; do not submit a fictitious Filling Shed → Customer movement. `OUT - Customer` is a new departure after the unit has returned to the pool under any IN category and fresh lookup offers Customer.
 
 #### OUT - Other
 

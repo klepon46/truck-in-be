@@ -35,7 +35,7 @@ Lookup `sppNumber` tetap referensi `{id}-{owner}` untuk submit. BE memakai `tran
     "sppNumber": "123-example",
     "customerId": "C400",
     "customerName": "Customer Name",
-    "allowedOutDestinations": ["CUSTOMER"]
+    "allowedOutDestinations": ["CUSTOMER", "FILLING_SHED_KUIN"]
   }
 }
 ```
@@ -45,15 +45,11 @@ Lookup `sppNumber` tetap referensi `{id}-{owner}` untuk submit. BE memakai `tran
 Backend terbaru selalu menyertakan `allowedOutDestinations` sebagai array, termasuk array kosong. Nilai yang dikenal untuk sumber SPP hanya:
 
 ```json
-["CUSTOMER"]
+["CUSTOMER", "FILLING_SHED_KUIN"]
 ```
 
 ```json
 ["FILLING_SHED_KUIN"]
-```
-
-```json
-["CUSTOMER", "FILLING_SHED_KUIN"]
 ```
 
 ```json
@@ -64,15 +60,14 @@ Backend terbaru selalu menyertakan `allowedOutDestinations` sebagai array, terma
 
 | Kondisi | Hasil |
 | --- | --- |
-| IN Gantungan, SPP aktif dan kode customer cocok, lifecycle masih valid | `["CUSTOMER"]` |
-| IN Gantungan tetapi SPP/customer tidak cocok atau cycle tidak tepercaya | `[]` |
-| IN Servis, canonical SPP/customer sama dari completed cycle terkait dan belum terminal | `["CUSTOMER", "FILLING_SHED_KUIN"]` |
-| IN Kosongan atau Service dengan SPP baru yang benar-benar belum digunakan dan belum selesai | `["FILLING_SHED_KUIN"]` |
-| Belum ada movement dengan SPP yang masih layak | `["FILLING_SHED_KUIN"]` |
+| IN Kosongan, Gantungan, atau Servis; SPP valid untuk unit sama, customer hasil scan tersedia; baru maupun dipakai ulang | `["CUSTOMER", "FILLING_SHED_KUIN"]` |
+| Kategori IN tersebut, tetapi kode customer hasil scan kosong | `["FILLING_SHED_KUIN"]` |
+| Canonical SPP memiliki histori di unit lain | `[]` |
+| Belum ada current movement, SPP valid untuk unit sama | `["FILLING_SHED_KUIN"]` |
 | Unit sedang OUT | `[]` |
 | Tidak ada departure baru yang memenuhi aturan dokumen/lifecycle | `[]` |
 
-BE menggunakan movement aktif dan departure yang terhubung melalui cycle IN Gantungan/Servis tersebut, bukan sembarang histori OUT. Perubahan nama customer dengan kode customer yang tetap sama tidak menggagalkan kecocokan. Data lama tanpa cycle tepercaya tidak ditebak atau diperbaiki otomatis oleh APP. Servis berulang boleh dilanjutkan dengan korelasi valid; Kosongan tetap terminal. APP tidak mengirim flag continuation atau referensi sumber Servis.
+BE menggunakan movement aktif dan memastikan histori canonical SPP tidak dimiliki unit lain. Seluruh kategori IN membuka kedua tujuan; SPP boleh dipakai berulang pada unit sama, termasuk setelah Kosongan. Tidak wajib mengikuti SPP/customer IN atau cycle sebelumnya. Customer tetap membutuhkan kode customer dari dokumen yang dipindai. Histori/cycle lama tidak ditebak atau diperbaiki otomatis; APP tidak mengirim flag bypass, policy version, atau referensi sumber Servis.
 
 ## 4. Perubahan DTO dan State APP
 
@@ -102,7 +97,7 @@ Endpoint lookup dipakai bersama untuk IN dan OUT. Unit yang sedang OUT dapat men
 
 Ini **bukan kegagalan lookup** dan **bukan alasan memblokir returning IN**. Tetap isi data unit/driver/customer dan lanjutkan form IN. Jangan otomatis mengganti arah yang dipilih pengguna.
 
-Returning IN tetap memakai jenis sumber SPP dan unit yang sama, tetapi nomor SPP boleh berbeda dari OUT. BE memvalidasi dokumen/unit saat submit dan menyimpan dokumen IN terpisah dari departure asli. Ini tidak memberi izin OUT berikutnya: aturan SPP aktif/customer/continuation tetap berlaku. Lihat [handover returning IN](mobile-returning-document-handover.md).
+Returning IN tetap memakai jenis sumber SPP dan unit yang sama, tetapi nomor SPP boleh berbeda dari OUT. BE memvalidasi dokumen/unit saat submit dan menyimpan dokumen IN terpisah dari departure asli. OUT berikutnya mengikuti policy 7: SPP valid pada unit sama boleh berulang ke kedua tujuan setelah kategori IN apa pun. Tetap ikuti array BE, bukan asumsi dari nomor IN. Lihat [panduan terbaru](mobile-spp-reuse-handover.md).
 
 ## 7. Submit Movement Tetap Menggunakan Kontrak Lama
 
@@ -149,7 +144,7 @@ Lookup bukan reservasi. Satpam lain dapat mengubah status sebelum submit. BE sel
 | --- | --- |
 | `404 SPP_NOT_FOUND` | Tampilkan `SPP tidak ditemukan di SAOS.`; tawarkan koreksi/scan ulang untuk percobaan baru, tanpa mengubah payload pending. |
 | `422 INVALID_TRANSITION` | Status tidak mengizinkan aksi; pertahankan form dan tawarkan lookup ulang untuk percobaan baru. |
-| `422 DOCUMENT_VALIDATION_FAILED` | Validasi field wajib dokumen, kecocokan unit, SPP aktif, customer, atau returning document gagal; tampilkan pesan aman dari BE. Polisi SAOS tidak lagi diwajibkan/dibandingkan untuk SPP. |
+| `422 DOCUMENT_VALIDATION_FAILED` | Validasi field wajib dokumen, kecocokan unit, kode customer hasil scan untuk Customer, atau jenis sumber returning IN gagal; tampilkan pesan aman dari BE. Polisi SAOS tidak lagi diwajibkan/dibandingkan untuk SPP. |
 | `409 SPP_USED` | SPP tidak dapat dipakai untuk departure tersebut; tawarkan koreksi atau dokumen lain. |
 | `409 IDEMPOTENCY_CONFLICT` | Key dipakai dengan payload berbeda; jangan otomatis mengganti payload/key untuk meneruskan retry yang hasilnya belum pasti. |
 
@@ -172,11 +167,11 @@ UnitLog hanya mencatat lintasan keluar/masuk pool:
 
 ## 11. Deployment dan Acceptance Checklist
 
-Terapkan migration **000006** sebelum BE kelanjutan Servis, lalu verifikasi/rilis APP. Permission dan payload tetap. Panduan mandiri terbaru: [kelanjutan setelah Servis](mobile-spp-service-continuation-handover.md).
+Terapkan migration **000007** sebelum BE policy reuse, lalu verifikasi/rilis APP. Permission dan payload tetap. Panduan mandiri terbaru: [SPP reuse dan tujuan terbuka](mobile-spp-reuse-handover.md).
 
-- [ ] Gantungan yang eligible hanya menampilkan Customer.
-- [ ] Servis dengan SPP/customer terkait menawarkan Customer dan Filling Shed.
-- [ ] Kosongan/Service dengan SPP baru yang benar-benar belum digunakan hanya menampilkan Filling Shed.
+- [ ] Kosongan/Gantungan/Servis menawarkan Customer dan Filling Shed untuk SPP valid pada unit sama.
+- [ ] SPP yang sama dapat berulang setelah Kosongan; SPP/customer IN sebelumnya tidak menjadi pembatas.
+- [ ] Histori SPP di unit lain tetap diblokir; Customer tetap memerlukan kode customer hasil scan.
 - [ ] Array kosong menonaktifkan OUT baru, tetapi tidak memblokir IN atau pending retry.
 - [ ] Field hilang/null tidak dianggap sebagai izin untuk kedua tujuan.
 - [ ] Lookup dokumen baru membersihkan selection yang tidak valid; respons lama tidak menimpa form terbaru.
