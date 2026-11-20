@@ -120,14 +120,13 @@ func ValidateTransition(status Status, direction Direction, inCategory, outDesti
 		return ErrInvalidTransition
 	}
 	if status.Direction == DirectionIn && status.InCategory == InWaitingForDelivery {
-		if outDestination != OutCustomer {
+		// Open the two SPP destinations only; WO/OTHER restrictions stay intact.
+		if outDestination != OutCustomer && outDestination != OutFillingShed {
 			return ErrInvalidTransition
 		}
 		return nil
 	}
-	// Service may resume an SPP to Customer; the shared SPP policy still
-	// requires a trustworthy same-SPP/customer cycle before authorizing it.
-	if outDestination == OutCustomer && !(status.Direction == DirectionIn && status.InCategory == InServiceAndRepair) {
+	if outDestination == OutCustomer && !(status.Direction == DirectionIn && isInCategory(status.InCategory)) {
 		return ErrInvalidTransition
 	}
 	return nil

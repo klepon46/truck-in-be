@@ -21,7 +21,7 @@ func TestSPPSubmitRejectsStatusChangedAfterLookup(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(sppEligibilityQuery)).WithArgs("SAMT119", "SPP-001").
 		WillReturnRows(sqlmock.NewRows(sppStateColumns).AddRow(7, "SAMT119", "DA 1234 AB", 20, "IN", InWaitingForDelivery, "SPP-001", "CUST-1", true, false))
 	lookup, err := service.LookupSPP(context.Background(), "SPP-001")
-	if err != nil || len(lookup.AllowedOutDestinations) != 1 || lookup.AllowedOutDestinations[0] != OutCustomer {
+	if err != nil || len(lookup.AllowedOutDestinations) != 2 || lookup.AllowedOutDestinations[0] != OutCustomer {
 		t.Fatalf("initial Customer lookup failed: %v", err)
 	}
 	mock.ExpectQuery("SELECT m.transaction_id").WillReturnRows(sqlmock.NewRows(transactionCycleColumns))
@@ -46,16 +46,15 @@ func TestSPPSubmitAppliesSharedEligibilityUnderLock(t *testing.T) {
 	databaseFailure := errors.New("test database unavailable")
 	for _, test := range []struct {
 		name, destination, category string
-		activeSPP, activeCustomer   any
-		used, completed             bool
+		foreign                     bool
 		readError                   error
 		want                        error
 	}{
-		{name: "missing legacy cycle", destination: OutCustomer, category: InWaitingForDelivery, used: true, want: ErrSPPMismatch},
-		{name: "different active SPP", destination: OutCustomer, category: InWaitingForDelivery, activeSPP: "OTHER-SPP", activeCustomer: "CUST-1", want: ErrSPPMismatch},
-		{name: "different customer code", destination: OutCustomer, category: InWaitingForDelivery, activeSPP: "SPP-001", activeCustomer: "OTHER", want: ErrCustomerMismatch},
-		{name: "completed SPP", destination: OutFillingShed, category: InWaitingForAssignment, completed: true, want: ErrSPPUsed},
-		{name: "Filling Shed already used", destination: OutFillingShed, category: InServiceAndRepair, used: true, want: ErrSPPUsed},
+		{name: "Gantungan foreign SPP Customer", destination: OutCustomer, category: InWaitingForDelivery, foreign: true, want: ErrSPPUsed},
+		{name: "Gantungan foreign SPP Filling Shed", destination: OutFillingShed, category: InWaitingForDelivery, foreign: true, want: ErrSPPUsed},
+		{name: "Kosongan foreign SPP Customer", destination: OutCustomer, category: InWaitingForAssignment, foreign: true, want: ErrSPPUsed},
+		{name: "Kosongan foreign SPP Filling Shed", destination: OutFillingShed, category: InWaitingForAssignment, foreign: true, want: ErrSPPUsed},
+		{name: "Service foreign SPP", destination: OutFillingShed, category: InServiceAndRepair, foreign: true, want: ErrSPPUsed},
 		{name: "database failure is not a mismatch", destination: OutCustomer, category: InWaitingForDelivery, readError: databaseFailure, want: databaseFailure},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -75,7 +74,7 @@ func TestSPPSubmitAppliesSharedEligibilityUnderLock(t *testing.T) {
 			if test.readError != nil {
 				expectation.WillReturnError(test.readError)
 			} else {
-				expectation.WillReturnRows(sqlmock.NewRows(sppStateColumns).AddRow(7, "SAMT119", "DA 1234 AB", 20, "IN", test.category, test.activeSPP, test.activeCustomer, test.used, test.completed))
+				expectation.WillReturnRows(sqlmock.NewRows(append(append([]string{}, sppStateColumns...), "used_by_other_unit")).AddRow(7, "SAMT119", "DA 1234 AB", 20, "IN", test.category, nil, nil, false, false, test.foreign))
 			}
 			mock.ExpectRollback()
 			_, err = NewService(sqlx.NewDb(db, "sqlmock"), nil, testDocuments{}).Record(context.Background(), "96942009-f8c4-4dbf-b7e0-6d571765166a", Input{

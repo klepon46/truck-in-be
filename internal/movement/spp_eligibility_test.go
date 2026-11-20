@@ -17,62 +17,64 @@ func TestSPPOutEligibilityPolicy(t *testing.T) {
 		adjust func(*sppEligibilityState, *Document)
 		want   []string
 	}{
-		{name: "Gantungan matching active SPP and customer", want: []string{OutCustomer}},
-		{name: "customer display name changes", adjust: func(_ *sppEligibilityState, d *Document) { d.CustomerName = "Renamed Customer" }, want: []string{OutCustomer}},
-		{name: "different active SPP", adjust: func(s *sppEligibilityState, _ *Document) { s.ActiveSPP = pointer("OTHER-SPP") }, want: []string{}},
-		{name: "different customer code", adjust: func(_ *sppEligibilityState, d *Document) { d.CustomerID = "OTHER-CUSTOMER" }, want: []string{}},
-		{name: "missing scanned customer code", adjust: func(_ *sppEligibilityState, d *Document) { d.CustomerID = "" }, want: []string{}},
-		{name: "missing customer code", adjust: func(s *sppEligibilityState, _ *Document) { s.ActiveCustomerID = nil }, want: []string{}},
-		{name: "legacy Gantungan without trusted cycle", adjust: func(s *sppEligibilityState, _ *Document) { s.ActiveSPP = nil }, want: []string{}},
-		{name: "Kosongan unused SPP", adjust: func(s *sppEligibilityState, _ *Document) { s.InCategory = InWaitingForAssignment }, want: []string{OutFillingShed}},
+		{name: "Gantungan matching active SPP and customer", want: []string{OutCustomer, OutFillingShed}},
+		{name: "customer display name changes", adjust: func(_ *sppEligibilityState, d *Document) { d.CustomerName = "Renamed Customer" }, want: []string{OutCustomer, OutFillingShed}},
+		{name: "different active SPP is allowed on the same unit", adjust: func(s *sppEligibilityState, _ *Document) { s.ActiveSPP = pointer("OTHER-SPP") }, want: []string{OutCustomer, OutFillingShed}},
+		{name: "different scanned customer is not an old-customer mismatch", adjust: func(_ *sppEligibilityState, d *Document) { d.CustomerID = "OTHER-CUSTOMER" }, want: []string{OutCustomer, OutFillingShed}},
+		{name: "missing scanned customer still blocks Customer", adjust: func(_ *sppEligibilityState, d *Document) { d.CustomerID = "" }, want: []string{OutFillingShed}},
+		{name: "blank scanned customer still blocks Customer", adjust: func(_ *sppEligibilityState, d *Document) { d.CustomerID = " " }, want: []string{OutFillingShed}},
+		{name: "missing historical customer no longer blocks OUT", adjust: func(s *sppEligibilityState, _ *Document) { s.ActiveCustomerID = nil }, want: []string{OutCustomer, OutFillingShed}},
+		{name: "legacy Gantungan without trusted cycle", adjust: func(s *sppEligibilityState, _ *Document) { s.ActiveSPP = nil }, want: []string{OutCustomer, OutFillingShed}},
+		{name: "Kosongan unused SPP", adjust: func(s *sppEligibilityState, _ *Document) { s.InCategory = InWaitingForAssignment }, want: []string{OutCustomer, OutFillingShed}},
 		{name: "Service unused SPP", adjust: func(s *sppEligibilityState, _ *Document) {
 			s.InCategory = InServiceAndRepair
 			s.ActiveSPP = nil
 			s.ActiveCustomerID = nil
-		}, want: []string{OutFillingShed}},
+		}, want: []string{OutCustomer, OutFillingShed}},
 		{name: "Service continues used SPP to either destination", adjust: func(s *sppEligibilityState, _ *Document) { s.InCategory = InServiceAndRepair; s.FillingShedUsed = true }, want: []string{OutCustomer, OutFillingShed}},
 		{name: "Service continues matching SPP before first Filling Shed", adjust: func(s *sppEligibilityState, _ *Document) { s.InCategory = InServiceAndRepair }, want: []string{OutCustomer, OutFillingShed}},
-		{name: "Service new SPP remains Filling Shed only", adjust: func(s *sppEligibilityState, _ *Document) {
+		{name: "Service new SPP permits both", adjust: func(s *sppEligibilityState, _ *Document) {
 			s.InCategory = InServiceAndRepair
 			s.ActiveSPP = pointer("OTHER-SPP")
-		}, want: []string{OutFillingShed}},
-		{name: "Service cannot reuse unrelated used SPP", adjust: func(s *sppEligibilityState, _ *Document) {
+		}, want: []string{OutCustomer, OutFillingShed}},
+		{name: "Service permits another previously used same-unit SPP", adjust: func(s *sppEligibilityState, _ *Document) {
 			s.InCategory = InServiceAndRepair
 			s.ActiveSPP = pointer("OTHER-SPP")
 			s.FillingShedUsed = true
-		}, want: []string{}},
-		{name: "Service matching SPP requires customer match for both destinations", adjust: func(s *sppEligibilityState, d *Document) {
+		}, want: []string{OutCustomer, OutFillingShed}},
+		{name: "Service does not require the old customer", adjust: func(s *sppEligibilityState, d *Document) {
 			s.InCategory = InServiceAndRepair
 			s.FillingShedUsed = true
 			d.CustomerID = "OTHER"
-		}, want: []string{}},
-		{name: "Service unmatched Customer history is not a new SPP", adjust: func(s *sppEligibilityState, _ *Document) {
+		}, want: []string{OutCustomer, OutFillingShed}},
+		{name: "Service can reuse historical Customer SPP", adjust: func(s *sppEligibilityState, _ *Document) {
 			s.InCategory = InServiceAndRepair
 			s.ActiveSPP = nil
 			s.PriorSPPUsed = true
-		}, want: []string{}},
-		{name: "Service trusted SPP cannot switch customer before first Filling Shed", adjust: func(s *sppEligibilityState, d *Document) {
+		}, want: []string{OutCustomer, OutFillingShed}},
+		{name: "Service uses current scanned customer", adjust: func(s *sppEligibilityState, d *Document) {
 			s.InCategory = InServiceAndRepair
 			d.CustomerID = "OTHER"
-		}, want: []string{}},
+		}, want: []string{OutCustomer, OutFillingShed}},
 		{name: "OUT remains usable for IN lookup", adjust: func(s *sppEligibilityState, _ *Document) { s.Direction = DirectionOut; s.InCategory = "" }, want: []string{}},
 		{name: "no history", adjust: func(s *sppEligibilityState, _ *Document) {
 			s.CurrentTransactionID = nil
 			s.Direction = ""
 			s.InCategory = ""
 		}, want: []string{OutFillingShed}},
-		{name: "no history cannot reuse a previously used SPP", adjust: func(s *sppEligibilityState, _ *Document) {
+		{name: "no current pointer permits same-unit Filling Shed reuse", adjust: func(s *sppEligibilityState, _ *Document) {
 			s.CurrentTransactionID = nil
 			s.Direction = ""
 			s.InCategory = ""
 			s.FillingShedUsed = true
-		}, want: []string{}},
+		}, want: []string{OutFillingShed}},
 		{name: "Filling Shed SPP already used", adjust: func(s *sppEligibilityState, _ *Document) {
 			s.InCategory = InWaitingForAssignment
 			s.FillingShedUsed = true
-		}, want: []string{}},
-		{name: "completed SPP cannot depart for Filling Shed", adjust: func(s *sppEligibilityState, _ *Document) { s.InCategory = InServiceAndRepair; s.SPPCompleted = true }, want: []string{}},
-		{name: "completed SPP cannot depart for Customer", adjust: func(s *sppEligibilityState, _ *Document) { s.SPPCompleted = true }, want: []string{}},
+		}, want: []string{OutCustomer, OutFillingShed}},
+		{name: "old completed SPP can depart after Service", adjust: func(s *sppEligibilityState, _ *Document) { s.InCategory = InServiceAndRepair; s.SPPCompleted = true }, want: []string{OutCustomer, OutFillingShed}},
+		{name: "old completed SPP can depart after Gantungan", adjust: func(s *sppEligibilityState, _ *Document) { s.SPPCompleted = true }, want: []string{OutCustomer, OutFillingShed}},
+		{name: "SPP history on another unit fails closed", adjust: func(s *sppEligibilityState, _ *Document) { s.UsedByOtherUnit = true }, want: []string{}},
 		{name: "dangling current pointer is not no history", adjust: func(s *sppEligibilityState, _ *Document) { s.Direction = ""; s.InCategory = "" }, want: []string{}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -91,14 +93,16 @@ func TestSPPOutEligibilityPolicy(t *testing.T) {
 
 func TestSPPDepartureValidationPreservesDomainErrors(t *testing.T) {
 	state := sppEligibilityState{Direction: DirectionIn, InCategory: InWaitingForDelivery, ActiveSPP: pointer("SPP-001"), ActiveCustomerID: pointer("C400")}
-	if err := validateSPPDeparture(state, OutCustomer, "OTHER-SPP", Document{CustomerID: "C400"}); !errors.Is(err, ErrSPPMismatch) {
-		t.Fatalf("different SPP error = %v", err)
+	state.UsedByOtherUnit = true
+	if err := validateSPPDeparture(state, OutCustomer, "OTHER-SPP", Document{CustomerID: "C400"}); !errors.Is(err, ErrSPPUsed) {
+		t.Fatalf("foreign-unit SPP error = %v", err)
 	}
-	if err := validateSPPDeparture(state, OutCustomer, "SPP-001", Document{CustomerID: "OTHER"}); !errors.Is(err, ErrCustomerMismatch) {
-		t.Fatalf("different customer error = %v", err)
+	state.UsedByOtherUnit = false
+	if err := validateSPPDeparture(state, OutCustomer, "SPP-001", Document{}); !errors.Is(err, ErrCustomerMismatch) {
+		t.Fatalf("missing scanned customer error = %v", err)
 	}
 	state.InCategory = InWaitingForAssignment
-	state.FillingShedUsed = true
+	state.UsedByOtherUnit = true
 	if err := validateSPPDeparture(state, OutFillingShed, "SPP-001", Document{}); !errors.Is(err, ErrSPPUsed) {
 		t.Fatalf("used SPP error = %v", err)
 	}

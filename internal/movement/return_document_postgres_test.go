@@ -12,13 +12,16 @@ import (
 
 type returningDocuments struct {
 	testDocuments
-	spp, unit string
+	spp, unit, customer string
 }
 
 func (d returningDocuments) SPP(ctx context.Context, number string) (Document, error) {
 	doc, err := (canonicalDocuments{number: d.spp}).SPP(ctx, number)
 	if d.unit != "" {
 		doc.NoLambung = d.unit
+	}
+	if d.customer != "" {
+		doc.CustomerID = d.customer
 	}
 	return doc, err
 }
@@ -99,8 +102,8 @@ func TestReturningDocumentPostgresDifferentNumbers(t *testing.T) {
 				if destination != OutWorkshop {
 					for _, number := range []string{"SPP-A", "SPP-B"} {
 						lookup, err := NewService(db, nil, returningDocuments{spp: number}).LookupSPP(context.Background(), "300-Owner")
-						if err != nil || len(lookup.AllowedOutDestinations) != 0 {
-							t.Fatalf("mismatched return must not authorize new OUT for %s: %v", number, err)
+						if err != nil || len(lookup.AllowedOutDestinations) != 2 {
+							t.Fatalf("same-unit SPP %s remains eligible after a changed-number return: %v", number, err)
 						}
 					}
 				}

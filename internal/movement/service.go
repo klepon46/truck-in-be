@@ -296,6 +296,10 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 			}
 		}
 		if errors.As(err, &postgresError) && postgresError.Code == "23514" &&
+			postgresError.Constraint == "movement_transactions_spp_unit_check" {
+			return Transaction{}, ErrSPPUsed
+		}
+		if errors.As(err, &postgresError) && postgresError.Code == "23514" &&
 			postgresError.Constraint == "movement_transactions_service_resumption_check" {
 			return Transaction{}, ErrSPPMismatch
 		}

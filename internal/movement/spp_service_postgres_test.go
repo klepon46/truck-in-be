@@ -5,13 +5,14 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )
 
-func serviceSchemaTestTransaction(t *testing.T) *sqlx.Tx {
+func serviceSchemaTestTransaction(t *testing.T, versions ...int) *sqlx.Tx {
 	t.Helper()
 	dsn := os.Getenv("UNITLOG_TEST_POSTGRES_DSN")
 	if dsn == "" {
@@ -35,7 +36,18 @@ func serviceSchemaTestTransaction(t *testing.T) *sqlx.Tx {
 	if err != nil || len(paths) == 0 {
 		t.Fatal("migrations unavailable")
 	}
+	version := 6 // Keep the version-6 schema/audit regressions testing that contract.
+	if len(versions) > 0 {
+		version = versions[0]
+	}
 	for _, path := range paths {
+		number, err := strconv.Atoi(filepath.Base(path)[:6])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if number > version {
+			continue
+		}
 		body, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)

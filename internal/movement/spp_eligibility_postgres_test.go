@@ -44,6 +44,9 @@ func TestSPPEligibilityPostgres(t *testing.T) {
 			}
 			defer tx.Rollback() // Fixtures and schema never survive the test transaction.
 			for _, path := range migrations {
+				if filepath.Base(path)[:6] > "000006" {
+					continue // Build historical fixtures before the policy-7 shape guard.
+				}
 				body, err := os.ReadFile(path)
 				if err != nil {
 					t.Fatal(err)
@@ -56,7 +59,7 @@ func TestSPPEligibilityPostgres(t *testing.T) {
 				t.Fatal(err)
 			}
 			var currentID int64
-			want := []string{}
+			want := []string{OutCustomer, OutFillingShed}
 			switch name {
 			case "Service trusted cycle", "Service legacy trusted cycle", "Service unmatched Customer", "Service different customer", "Service conflicting departure driver", "Service completed elsewhere":
 				destination := OutFillingShed
@@ -99,7 +102,6 @@ func TestSPPEligibilityPostgres(t *testing.T) {
 					category = InServiceAndRepair
 				}
 				currentID = sppFixtureMovement(t, tx, DirectionIn, category, "", "", "")
-				want = []string{OutFillingShed}
 			case "Gantungan", "different SPP", "different customer", "OUT after historical Gantungan", "Gantungan returning from Customer", "legacy Gantungan with trusted cycle", "conflicting arrival SPP":
 				number, customer := "SPP-001", "C400"
 				if name == "different SPP" {
@@ -119,14 +121,16 @@ func TestSPPEligibilityPostgres(t *testing.T) {
 				currentID = sppFixtureMovement(t, tx, DirectionIn, InWaitingForDelivery, "", arrivalNumber, arrivalCustomer)
 				sppFixtureCycle(t, tx, out, currentID)
 				if name == "Gantungan" || name == "Gantungan returning from Customer" || name == "legacy Gantungan with trusted cycle" {
-					want = []string{OutCustomer}
+					want = []string{OutCustomer, OutFillingShed}
 				}
 				if name == "OUT after historical Gantungan" || name == "Gantungan returning from Customer" {
 					out = sppFixtureMovement(t, tx, DirectionOut, "", OutCustomer, number, customer)
 					currentID = out
+					want = []string{}
 					if name == "Gantungan returning from Customer" {
 						currentID = sppFixtureMovement(t, tx, DirectionIn, InWaitingForDelivery, "", number, customer)
 						sppFixtureCycle(t, tx, out, currentID)
+						want = []string{OutCustomer, OutFillingShed}
 					}
 				}
 			case "legacy Gantungan without cycle", "unrelated old SPP":
@@ -151,6 +155,7 @@ func TestSPPEligibilityPostgres(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			applySPPReuseMigration(t, tx, "up")
 			state, err := readSPPState(context.Background(), tx, "SAMT119", "SPP-001")
 			if err != nil {
 				t.Fatal(err)

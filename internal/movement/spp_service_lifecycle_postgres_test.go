@@ -17,7 +17,7 @@ import (
 )
 
 // Each test owns a generated schema, only within this explicitly disposable DB.
-func serviceLifecycleDB(t *testing.T) *sqlx.DB {
+func serviceLifecycleDB(t *testing.T, versions ...int) *sqlx.DB {
 	t.Helper()
 	dsn := os.Getenv("UNITLOG_SERVICE_TEST_POSTGRES_DSN")
 	if dsn == "" {
@@ -56,6 +56,9 @@ func serviceLifecycleDB(t *testing.T) *sqlx.DB {
 		t.Fatal("migrations unavailable")
 	}
 	for _, path := range paths {
+		if len(versions) > 0 && filepath.Base(path)[:6] > fmt.Sprintf("%06d", versions[0]) {
+			continue
+		}
 		body, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
@@ -100,8 +103,6 @@ func TestSPPServicePostgresApprovedLifecycle(t *testing.T) {
 			want := []string{OutCustomer, OutFillingShed}
 			if i == 0 {
 				want = []string{OutFillingShed}
-			} else if i == 8 {
-				want = []string{OutCustomer}
 			}
 			if !reflect.DeepEqual(lookup.AllowedOutDestinations, want) {
 				t.Fatalf("step %d destinations %v, want %v", i, lookup.AllowedOutDestinations, want)
@@ -144,12 +145,12 @@ func TestSPPServicePostgresApprovedLifecycle(t *testing.T) {
 		previous = row
 	}
 	lookup, err := s.LookupSPP(ctx, "999-Owner")
-	if err != nil || len(lookup.AllowedOutDestinations) != 0 {
-		t.Fatalf("Kosongan must complete SPP: %v", err)
+	if err != nil || len(lookup.AllowedOutDestinations) != 2 {
+		t.Fatalf("Kosongan must permit both same-unit SPP destinations: %v", err)
 	}
-	_, err = s.Record(ctx, "96942009-f8c4-4dbf-b7e0-999999999999", Input{NoLambung: "SAMT119", Direction: DirectionOut, OutDestination: OutFillingShed, SPPNumber: "999-Owner"}, "actor", "Satpam")
-	if !errors.Is(err, ErrSPPUsed) {
-		t.Fatalf("terminal SPP was revived: %v", err)
+	_, err = NewService(db, nil, returningDocuments{spp: "SPP-001", unit: "SAMT120"}).Record(ctx, "96942009-f8c4-4dbf-b7e0-999999999999", Input{NoLambung: "SAMT119", Direction: DirectionOut, OutDestination: OutFillingShed, SPPNumber: "999-Owner"}, "actor", "Satpam")
+	if !errors.Is(err, ErrExternalDocument) {
+		t.Fatalf("reuse must still reject a different upstream unit: %v", err)
 	}
 	var cycles, durations, movements int
 	db.Get(&cycles, `SELECT COUNT(*) FROM movement_cycles WHERE completed_at IS NOT NULL`)

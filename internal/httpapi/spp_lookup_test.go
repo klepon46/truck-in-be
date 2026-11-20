@@ -49,17 +49,19 @@ func TestSPPLookupIntegration(t *testing.T) {
 		activeCustomer   any
 		used             bool
 		completed        bool
+		foreign          bool
 		wantDestinations []string
 	}{
 		{name: "actual fixture without movement writes", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", wantStatus: 200},
 		{name: "OUT lookup still works for returning IN", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "OUT", used: true, wantStatus: 200, wantDestinations: []string{}},
-		{name: "Gantungan matching active SPP", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForDelivery, activeSPP: "SPG-BJM-2612481", activeCustomer: "C400", used: true, wantStatus: 200, wantDestinations: []string{movement.OutCustomer}},
+		{name: "Gantungan matching active SPP", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForDelivery, activeSPP: "SPG-BJM-2612481", activeCustomer: "C400", used: true, wantStatus: 200, wantDestinations: []string{movement.OutCustomer, movement.OutFillingShed}},
 		{name: "Service resumes both destinations", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "MASTER PLATE", direction: "IN", category: movement.InServiceAndRepair, activeSPP: "SPG-BJM-2612481", activeCustomer: "C400", used: true, wantStatus: 200, wantDestinations: []string{movement.OutCustomer, movement.OutFillingShed}},
-		{name: "Service cannot change customer", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "MASTER PLATE", direction: "IN", category: movement.InServiceAndRepair, activeSPP: "SPG-BJM-2612481", activeCustomer: "OTHER", used: true, wantStatus: 200, wantDestinations: []string{}},
-		{name: "Service cannot revive terminal SPP", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "MASTER PLATE", direction: "IN", category: movement.InServiceAndRepair, activeSPP: "SPG-BJM-2612481", activeCustomer: "C400", used: true, completed: true, wantStatus: 200, wantDestinations: []string{}},
-		{name: "Gantungan different active SPP", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForDelivery, activeSPP: "OTHER-SPP", activeCustomer: "C400", wantStatus: 200, wantDestinations: []string{}},
-		{name: "Gantungan customer mismatch is not a lookup error", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForDelivery, activeSPP: "SPG-BJM-2612481", activeCustomer: "OTHER-CUSTOMER", wantStatus: 200, wantDestinations: []string{}},
-		{name: "completed SPP is not offered", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForAssignment, completed: true, wantStatus: 200, wantDestinations: []string{}},
+		{name: "Service may change historical customer", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "MASTER PLATE", direction: "IN", category: movement.InServiceAndRepair, activeSPP: "SPG-BJM-2612481", activeCustomer: "OTHER", used: true, wantStatus: 200, wantDestinations: []string{movement.OutCustomer, movement.OutFillingShed}},
+		{name: "Service may reuse old terminal SPP", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "MASTER PLATE", direction: "IN", category: movement.InServiceAndRepair, activeSPP: "SPG-BJM-2612481", activeCustomer: "C400", used: true, completed: true, wantStatus: 200, wantDestinations: []string{movement.OutCustomer, movement.OutFillingShed}},
+		{name: "Gantungan different active SPP", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForDelivery, activeSPP: "OTHER-SPP", activeCustomer: "C400", wantStatus: 200, wantDestinations: []string{movement.OutCustomer, movement.OutFillingShed}},
+		{name: "Gantungan may change historical customer", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForDelivery, activeSPP: "SPG-BJM-2612481", activeCustomer: "OTHER-CUSTOMER", wantStatus: 200, wantDestinations: []string{movement.OutCustomer, movement.OutFillingShed}},
+		{name: "Kosongan may reuse old completed SPP", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 8729 CB", direction: "IN", category: movement.InWaitingForAssignment, completed: true, wantStatus: 200, wantDestinations: []string{movement.OutCustomer, movement.OutFillingShed}},
+		{name: "foreign-unit SPP remains ineligible", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "MASTER PLATE", direction: "IN", category: movement.InWaitingForAssignment, foreign: true, wantStatus: 200, wantDestinations: []string{}},
 		{name: "unit not found", response: sppLookupFixture, querySnapshot: true, wantStatus: 404, wantCode: "UNIT_NOT_FOUND"},
 		{name: "different SAOS police ignored", response: sppLookupFixture, querySnapshot: true, snapshotPolice: "DA 0000 XX", wantStatus: 200},
 		{name: "database failure is not empty eligibility", response: sppLookupFixture, querySnapshot: true, databaseFailure: true, wantStatus: 500, wantCode: "INTERNAL_ERROR"},
@@ -95,13 +97,13 @@ func TestSPPLookupIntegration(t *testing.T) {
 			}
 			defer db.Close()
 			if test.querySnapshot {
-				rows := sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi", "current_transaction_id", "direction", "in_category", "active_spp", "active_customer_id", "filling_shed_used", "spp_completed"})
+				rows := sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi", "current_transaction_id", "direction", "in_category", "active_spp", "active_customer_id", "filling_shed_used", "spp_completed", "used_by_other_unit"})
 				var currentID any
 				if test.direction != "" {
 					currentID = int64(20)
 				}
 				if test.snapshotPolice != "" {
-					rows.AddRow(72, "SAMT072", test.snapshotPolice, currentID, test.direction, test.category, test.activeSPP, test.activeCustomer, test.used, test.completed)
+					rows.AddRow(72, "SAMT072", test.snapshotPolice, currentID, test.direction, test.category, test.activeSPP, test.activeCustomer, test.used, test.completed, test.foreign)
 				}
 				expectation := mock.ExpectQuery(regexp.QuoteMeta(`SELECT u.lambung_unit_id, u.no_lambung, u.no_polisi, u.current_transaction_id,`)).
 					WithArgs("SAMT072", "SPG-BJM-2612481")

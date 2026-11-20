@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type sppEligibilityState struct {
@@ -19,6 +20,7 @@ type sppEligibilityState struct {
 	FillingShedUsed      bool      `db:"filling_shed_used"`
 	SPPCompleted         bool      `db:"spp_completed"`
 	PriorSPPUsed         bool      `db:"prior_spp_used"`
+	UsedByOtherUnit      bool      `db:"used_by_other_unit"`
 }
 
 // One SELECT keeps status, cycle correlation, and lifecycle facts in one snapshot.
@@ -34,7 +36,8 @@ SELECT u.lambung_unit_id, u.no_lambung, u.no_polisi, u.current_transaction_id,
        unitlog_spp_completed($2) AS spp_completed,
        EXISTS (
            SELECT 1 FROM movement_transactions used WHERE used.spp_number = $2
-       ) AS prior_spp_used
+        ) AS prior_spp_used,
+        unitlog_spp_used_by_other_unit($2, u.lambung_unit_id) AS used_by_other_unit
 FROM unit_snapshot u
 LEFT JOIN movement_transactions current_m
   ON current_m.transaction_id = u.current_transaction_id AND current_m.lambung_unit_id = u.lambung_unit_id
@@ -57,24 +60,22 @@ func validateSPPDeparture(state sppEligibilityState, destination, number string,
 	if destination != OutCustomer && destination != OutFillingShed {
 		return ErrInvalidInput
 	}
-	if state.CurrentTransactionID != nil && state.Direction == "" {
+	if number == "" {
+		return ErrInvalidInput
+	}
+	if (state.CurrentTransactionID != nil && state.Direction == "") ||
+		(state.Direction == DirectionIn && !isInCategory(state.InCategory)) {
 		return ErrInvalidTransition
 	}
 	if err := ValidateTransition(Status{Direction: state.Direction, InCategory: state.InCategory}, DirectionOut, "", destination); err != nil {
 		return err
 	}
-	serviceContinuation := state.Direction == DirectionIn && state.InCategory == InServiceAndRepair &&
-		state.ActiveSPP != nil && *state.ActiveSPP == number
-	if destination == OutFillingShed && !serviceContinuation {
-		if state.PriorSPPUsed || state.FillingShedUsed || state.SPPCompleted {
-			return ErrSPPUsed
-		}
-		return nil
+	if state.UsedByOtherUnit {
+		return ErrSPPUsed
 	}
-	if state.SPPCompleted || state.ActiveSPP == nil || *state.ActiveSPP != number {
-		return ErrSPPMismatch
-	}
-	if state.ActiveCustomerID == nil || *state.ActiveCustomerID == "" || document.CustomerID == "" || *state.ActiveCustomerID != document.CustomerID {
+	// Previous SPP/category/customer/completion facts are historical only.
+	// Current scanned document requirements still apply to Customer.
+	if destination == OutCustomer && strings.TrimSpace(document.CustomerID) == "" {
 		return ErrCustomerMismatch
 	}
 	return nil

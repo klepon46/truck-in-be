@@ -2,12 +2,18 @@ package movement
 
 import "testing"
 
-func TestValidateTransitionAllowsCustomerOnlyForActiveDeliverySPP(t *testing.T) {
+func TestValidateTransitionOpensSPPDestinationsButNotOtherFromGantungan(t *testing.T) {
 	if err := ValidateTransition(Status{Direction: DirectionIn, InCategory: InWaitingForDelivery}, DirectionOut, "", OutCustomer); err != nil {
 		t.Fatalf("ValidateTransition() error = %v", err)
 	}
 	if err := ValidateTransition(Status{Direction: DirectionIn, InCategory: InWaitingForDelivery}, DirectionOut, "", OutOther); err == nil {
 		t.Fatal("ValidateTransition() allowed Other from an active delivery SPP")
+	}
+	if err := ValidateTransition(Status{Direction: DirectionIn, InCategory: InWaitingForDelivery}, DirectionOut, "", OutFillingShed); err != nil {
+		t.Fatalf("Gantungan must permit Filling Shed: %v", err)
+	}
+	if err := ValidateTransition(Status{Direction: DirectionIn, InCategory: InWaitingForDelivery}, DirectionOut, "", OutWorkshop); err == nil {
+		t.Fatal("opening SPP destinations must not open Workshop from Gantungan")
 	}
 }
 

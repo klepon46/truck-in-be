@@ -90,15 +90,15 @@ func waitForSPPLock(t *testing.T, db *sqlx.DB) {
 	}
 }
 
-func TestSPPServicePostgresGlobalTerminalWhileWaiting(t *testing.T) {
+func TestSPPReusePostgresForeignUnitWhileWaiting(t *testing.T) {
 	db := serviceLifecycleDB(t)
-	s, _ := serviceTestArrival(t, db)
+	s := NewService(db, nil, canonicalDocuments{number: "SPP-001"})
 	terminal, err := db.Beginx()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer terminal.Rollback()
-	// Legacy overlap on a different unit: Customer-only history, no second normal Filling Shed.
+	// Another unit's first use remains uncommitted while this request waits.
 	if _, err := terminal.Exec(`SELECT 1 FROM unit_snapshot WHERE lambung_unit_id=8 FOR UPDATE;
 		SELECT pg_advisory_xact_lock(8105,hashtext('SPP-001'))`); err != nil {
 		t.Fatal(err)
@@ -128,8 +128,8 @@ func TestSPPServicePostgresGlobalTerminalWhileWaiting(t *testing.T) {
 	if err := terminal.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if err := <-done; !errors.Is(err, ErrSPPMismatch) {
-		t.Fatalf("fresh policy must see terminal return committed by another unit: %v", err)
+	if err := <-done; !errors.Is(err, ErrSPPUsed) {
+		t.Fatalf("fresh policy must see SPP history committed by another unit: %v", err)
 	}
 	var count int
 	if err := db.Get(&count, `SELECT COUNT(*) FROM movement_transactions WHERE resumed_from_service_transaction_id IS NOT NULL`); err != nil || count != 0 {
@@ -165,9 +165,16 @@ func TestSPPServicePostgresReturnAlsoLocksCanonicalSPP(t *testing.T) {
 	}
 }
 
-func TestSPPServicePostgresDowngradeWaitsForCustomerAudit(t *testing.T) {
-	db := serviceLifecycleDB(t)
-	_, source := serviceTestArrival(t, db)
+func TestSPPReusePostgresDowngradeWaitsForCustomerAudit(t *testing.T) {
+	db := serviceLifecycleDB(t, 6)
+	source := legacyServiceArrival(t, db)
+	up, err := os.ReadFile(filepath.Join("..", "..", "migrations", "000007_allow_same_unit_spp_reuse.up.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(string(up)); err != nil {
+		t.Fatal(err)
+	}
 	writer, err := db.Beginx()
 	if err != nil {
 		t.Fatal(err)
@@ -177,10 +184,10 @@ func TestSPPServicePostgresDowngradeWaitsForCustomerAudit(t *testing.T) {
 	if err := writer.Get(&link, `INSERT INTO movement_transactions
 	 (idempotency_key,request_hash,lambung_unit_id,no_lambung_snapshot,no_polisi_snapshot,direction,out_destination,spp_number,customer_id,driver_name_snapshot,actor_id,actor_name_snapshot)
 	 VALUES(gen_random_uuid(),decode('00','hex'),7,'SAMT119','MASTER PLATE','OUT','CUSTOMER','SPP-001','CUST-1','Driver','actor','Satpam')
-	 RETURNING resumed_from_service_transaction_id`); err != nil || link != source.ID {
+	 RETURNING resumed_from_service_transaction_id`); err != nil || link != source {
 		t.Fatalf("Customer resumption did not derive source: %v", err)
 	}
-	body, err := os.ReadFile(filepath.Join("..", "..", "migrations", "000006_add_spp_service_continuations.down.sql"))
+	body, err := os.ReadFile(filepath.Join("..", "..", "migrations", "000007_allow_same_unit_spp_reuse.down.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +225,7 @@ func TestSPPServicePostgresDowngradeWaitsForCustomerAudit(t *testing.T) {
 		t.Fatal("downgrade discarded a Customer continuation committed while it waited")
 	}
 	var retained int64
-	if err := db.Get(&retained, `SELECT resumed_from_service_transaction_id FROM movement_transactions WHERE resumed_from_service_transaction_id=$1`, source.ID); err != nil || retained != source.ID {
+	if err := db.Get(&retained, `SELECT resumed_from_service_transaction_id FROM movement_transactions WHERE resumed_from_service_transaction_id=$1`, source); err != nil || retained != source {
 		t.Fatal("failed downgrade must retain audit metadata")
 	}
 }

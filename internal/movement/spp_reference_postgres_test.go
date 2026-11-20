@@ -101,7 +101,7 @@ func TestSPPReferencePostgresLifecycleAndReplay(t *testing.T) {
 		t.Fatal("new returning IN must snapshot current master police")
 	}
 	lookup, err := service.LookupSPP(ctx, "456-Another-Owner")
-	if err != nil || lookup.NoPolisi != "MASTER NEW" || lookup.SPPNumber != "456-Another-Owner" || len(lookup.AllowedOutDestinations) != 1 || lookup.AllowedOutDestinations[0] != OutCustomer {
+	if err != nil || lookup.NoPolisi != "MASTER NEW" || lookup.SPPNumber != "456-Another-Owner" || len(lookup.AllowedOutDestinations) != 2 || lookup.AllowedOutDestinations[0] != OutCustomer {
 		t.Fatalf("alias lookup must use canonical eligibility but echo reference: %v", err)
 	}
 	departure := Input{NoLambung: "SAMT119", Direction: DirectionOut, OutDestination: OutCustomer, SPPNumber: "456-Another-Owner", Coordinates: "0,0"}
@@ -132,12 +132,12 @@ func TestSPPReferencePostgresLifecycleAndReplay(t *testing.T) {
 		t.Fatalf("final returning IN must close Customer cycle: %v", err)
 	}
 	lookup, err = service.LookupSPP(ctx, "999-example")
-	if err != nil || len(lookup.AllowedOutDestinations) != 0 {
-		t.Fatalf("another reference must not revive a completed SPP: %v", err)
+	if err != nil || len(lookup.AllowedOutDestinations) != 2 {
+		t.Fatalf("another reference may reuse the same SPP after Kosongan: %v", err)
 	}
 	departure.SPPNumber, departure.OutDestination = "999-example", OutFillingShed
-	if _, err := service.Record(ctx, "96942009-f8c4-4dbf-b7e0-6d5717651664", departure, "actor", "Satpam"); !errors.Is(err, ErrSPPUsed) {
-		t.Fatalf("alias must not bypass Filling Shed reuse/completion: %v", err)
+	if _, err := wrong.Record(ctx, "96942009-f8c4-4dbf-b7e0-6d5717651664", departure, "actor", "Satpam"); !errors.Is(err, ErrExternalDocument) {
+		t.Fatalf("reuse still must not bypass the document's unit: %v", err)
 	}
 	var movements, durations, closed int
 	if err := db.Get(&movements, `SELECT COUNT(*) FROM movement_transactions`); err != nil {
@@ -155,5 +155,8 @@ func TestSPPReferencePostgresLifecycleAndReplay(t *testing.T) {
 	var historicalPolice string
 	if err := db.Get(&historicalPolice, `SELECT no_polisi_snapshot FROM movement_transactions WHERE transaction_id=$1`, departureID); err != nil || historicalPolice != "DA 1234 AB" {
 		t.Fatal("master changes/new SPP movements must not rewrite the historical police snapshot")
+	}
+	if repeated, err := service.Record(ctx, "96942009-f8c4-4dbf-b7e0-6d5717651664", departure, "actor", "Satpam"); err != nil || repeated.SPPNumber == nil || *repeated.SPPNumber != "SPP-001" {
+		t.Fatalf("canonical reference must allow actual repeated Filling Shed after Kosongan: %v", err)
 	}
 }
