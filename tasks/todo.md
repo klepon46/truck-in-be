@@ -184,5 +184,5 @@
 Approved contract: `SPEC.md` → Returning IN Matches Document Type And Unit, Not Number. Previous task/checkpoint statuses stay unchanged.
 
 - [x] Prove changed-number WO/SPP IN with failing tests; retain same-type/same-unit/upstream validation, immutable OUT and original departure metadata. Three changed-number cases failed before implementation; unit, real PostgreSQL category/source/replay/rollback tests and full Go tests/vet/build now pass.
-- [ ] Preserve canonical completion serialization when IN changes SPP: lock incoming/outgoing SPPs in deterministic advisory-key order; test lifecycle, replay, rollback, wrong-unit/cross-type and concurrency on disposable PostgreSQL.
+- [x] Preserve canonical completion serialization when IN changes SPP: lock incoming/outgoing SPPs in deterministic advisory-key order; tested lifecycle, replay, rollback, wrong-unit/cross-type and concurrency on disposable PostgreSQL. Both original/incoming lock waits and concurrent reverse A→B/B→A returns pass; HTTP tests verify actual upstream unit fields and distinct IN/departure response numbers. Full tests/vet/build passed with all three disposable PostgreSQL DSNs enabled.
 - [ ] Update Swagger and standalone APP guidance, reconcile old same-number wording, and review/test full Go/vet/build/Docker. No schema, OUT policy, live data/configuration, push, or deployment changes.
