@@ -178,3 +178,11 @@
 - [x] Update configuration, Unit Lambung sync, and Portainer guidance with prefix-aware URLs, status interpretation, and deployment/verification limits. Existing paths on other integrations are now honored; review these before rollout. No live requests/configuration/token/TLS changes.
 - [x] Review correctness/security/architecture/readability/performance and source/documentation consistency. Full Go tests/vet/build, Docker test target, and production-image build passed. The shared change joins escaped paths only and retains endpoint queries, headers, transport/TLS, timeout/context, privacy, and response classifications. Production token validity and the original generic transport failure remain unverified; no live configuration, integration, data, push, or deployment changes.
 - Verify: source/documentation consistency and full test results; report unavailable tooling. Dependencies: Task 29.
+
+## Task 31: Returning IN By Same Document Type And Unit
+
+Approved contract: `SPEC.md` → Returning IN Matches Document Type And Unit, Not Number. Previous task/checkpoint statuses stay unchanged.
+
+- [x] Prove changed-number WO/SPP IN with failing tests; retain same-type/same-unit/upstream validation, immutable OUT and original departure metadata. Three changed-number cases failed before implementation; unit, real PostgreSQL category/source/replay/rollback tests and full Go tests/vet/build now pass.
+- [ ] Preserve canonical completion serialization when IN changes SPP: lock incoming/outgoing SPPs in deterministic advisory-key order; test lifecycle, replay, rollback, wrong-unit/cross-type and concurrency on disposable PostgreSQL.
+- [ ] Update Swagger and standalone APP guidance, reconcile old same-number wording, and review/test full Go/vet/build/Docker. No schema, OUT policy, live data/configuration, push, or deployment changes.

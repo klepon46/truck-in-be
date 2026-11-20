@@ -252,17 +252,19 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 	if err := ValidateTransition(snapshot.Status, input.Direction, input.InCategory, input.OutDestination); err != nil {
 		return Transaction{}, err
 	}
+	var departureSPP string
+	if input.Direction == DirectionIn && snapshot.CurrentTransactionID != nil {
+		departureSPP, err = validateReturningSource(ctx, tx, *snapshot.CurrentTransactionID, snapshot.ID, input)
+		if err != nil {
+			return Transaction{}, err
+		}
+	}
 	if input.SPPNumber != "" {
 		// Same order as the insert trigger: unit snapshot, then canonical SPP.
 		// Both returns and departures serialize global completion across units.
 		// Read eligibility in the next statement for a fresh READ COMMITTED snapshot.
-		if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(8105, hashtext($1))`, input.SPPNumber); err != nil {
+		if err := lockMovementSPPs(ctx, tx, input.SPPNumber, departureSPP); err != nil {
 			return Transaction{}, fmt.Errorf("lock canonical SPP: %w", err)
-		}
-	}
-	if input.Direction == DirectionIn && snapshot.CurrentTransactionID != nil {
-		if err := validateReturningSource(ctx, tx, *snapshot.CurrentTransactionID, input); err != nil {
-			return Transaction{}, err
 		}
 	}
 	if input.Direction == DirectionOut && input.SPPNumber != "" {
@@ -326,7 +328,7 @@ func (s *Service) Record(ctx context.Context, idempotencyKey string, input Input
 	return transaction, nil
 }
 
-func validateReturningSource(ctx context.Context, tx *sqlx.Tx, transactionID int64, input Input) error {
+func validateReturningSource(ctx context.Context, tx *sqlx.Tx, transactionID, unitID int64, input Input) (string, error) {
 	var departure struct {
 		Destination string  `db:"out_destination"`
 		WorkOrder   *string `db:"work_order_number"`
@@ -335,26 +337,48 @@ func validateReturningSource(ctx context.Context, tx *sqlx.Tx, transactionID int
 	if err := tx.GetContext(ctx, &departure, `
 SELECT out_destination, work_order_number, spp_number
 FROM movement_transactions
-WHERE transaction_id = $1 AND direction = 'OUT'`, transactionID); err != nil {
-		return ErrReturnDocumentMismatch
+WHERE transaction_id = $1 AND lambung_unit_id = $2 AND direction = 'OUT'`, transactionID, unitID); err != nil {
+		return "", ErrReturnDocumentMismatch
 	}
 	switch departure.Destination {
 	case OutWorkshop:
-		if departure.WorkOrder == nil || input.WorkOrderNumber != *departure.WorkOrder {
-			return ErrReturnDocumentMismatch
+		if departure.WorkOrder == nil || strings.TrimSpace(*departure.WorkOrder) == "" ||
+			input.WorkOrderNumber == "" || input.SPPNumber != "" {
+			return "", ErrReturnDocumentMismatch
 		}
 	case OutFillingShed, OutCustomer:
-		if departure.SPP == nil || input.SPPNumber != *departure.SPP {
-			return ErrReturnDocumentMismatch
+		if departure.SPP == nil || strings.TrimSpace(*departure.SPP) == "" ||
+			input.SPPNumber == "" || input.WorkOrderNumber != "" {
+			return "", ErrReturnDocumentMismatch
 		}
+		return *departure.SPP, nil
 	case OutOther:
 		if input.WorkOrderNumber != "" || input.SPPNumber != "" {
-			return ErrReturnDocumentMismatch
+			return "", ErrReturnDocumentMismatch
 		}
 	default:
-		return ErrReturnDocumentMismatch
+		return "", ErrReturnDocumentMismatch
 	}
-	return nil
+	return "", nil
+}
+
+func lockMovementSPPs(ctx context.Context, tx *sqlx.Tx, number, departureNumber string) error {
+	if departureNumber == "" || departureNumber == number {
+		_, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(8105, hashtext($1))`, number)
+		return err
+	}
+	// A changed-number IN can complete both the scanned SPP and its cycle's
+	// original SPP. Sort distinct advisory keys (not document text), so reverse
+	// A→B / B→A returns and hash collisions cannot invert lock order.
+	// Output functions run after sorting: https://www.postgresql.org/docs/15/sql-select.html#SQL-SELECT-LIST
+	_, err := tx.ExecContext(ctx, `
+SELECT pg_advisory_xact_lock(8105, spp_key)
+FROM (
+    SELECT DISTINCT hashtext(number) AS spp_key
+    FROM unnest($1::text[]) AS numbers(number)
+) AS canonical_spps
+ORDER BY spp_key`, pq.Array([]string{number, departureNumber}))
+	return err
 }
 
 func (t *Transaction) applyCycle(cycle movementCycle) {

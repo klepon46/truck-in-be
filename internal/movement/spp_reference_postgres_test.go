@@ -88,10 +88,10 @@ func TestSPPReferencePostgresLifecycleAndReplay(t *testing.T) {
 	if err != nil || legacyReplay.ID != departureID || legacyReplay.NoPolisi != "DA 1234 AB" {
 		t.Fatalf("legacy replay must not depend on new reference parsing: %v", err)
 	}
-	wrong := NewService(db, nil, canonicalDocuments{number: "OTHER-SPP"})
+	wrong := NewService(db, nil, returningDocuments{spp: "OTHER-SPP", unit: "SAMT120"})
 	arrival := Input{NoLambung: "SAMT119", Direction: DirectionIn, InCategory: InWaitingForDelivery, SPPNumber: "123-example", Coordinates: "-3,114"}
-	if _, err := wrong.Record(ctx, "96942009-f8c4-4dbf-b7e0-6d5717651661", arrival, "actor", "Satpam"); !errors.Is(err, ErrReturnDocumentMismatch) {
-		t.Fatalf("different resolved SPP must not close the legacy cycle: %v", err)
+	if _, err := wrong.Record(ctx, "96942009-f8c4-4dbf-b7e0-6d5717651661", arrival, "actor", "Satpam"); !errors.Is(err, ErrExternalDocument) {
+		t.Fatalf("different resolved unit must not close the legacy cycle: %v", err)
 	}
 	firstIn, err := service.Record(ctx, "96942009-f8c4-4dbf-b7e0-6d5717651661", arrival, "actor", "Satpam")
 	if err != nil || firstIn.CycleID == nil || *firstIn.CycleID != cycleID || firstIn.SPPNumber == nil || *firstIn.SPPNumber != "SPP-001" {

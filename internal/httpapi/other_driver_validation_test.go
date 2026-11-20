@@ -85,7 +85,7 @@ func TestOtherSubmitDriverBypassKeepsPickerAndMovementRules(t *testing.T) {
 					if test.returnSource == movement.OutWorkshop {
 						wo = "WO-001"
 					}
-					mock.ExpectQuery("SELECT out_destination, work_order_number, spp_number").WithArgs(int64(19)).
+					mock.ExpectQuery("SELECT out_destination, work_order_number, spp_number").WithArgs(int64(19), int64(25)).
 						WillReturnRows(sqlmock.NewRows([]string{"out_destination", "work_order_number", "spp_number"}).AddRow(test.returnSource, wo, nil))
 				}
 				if test.status == 201 {

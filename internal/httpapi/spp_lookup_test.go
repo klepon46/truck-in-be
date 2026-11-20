@@ -260,11 +260,12 @@ func TestSPPSubmitSnapshotsMasterPoliceInBothDirections(t *testing.T) {
 					WillReturnRows(sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi", "current_transaction_id", "direction", "in_category"}).
 						AddRow(72, "SAMT072", "MASTER PLATE", currentID, previousDirection, nil))
 				mock.ExpectQuery("SELECT m.transaction_id").WillReturnRows(sqlmock.NewRows([]string{"transaction_id"}))
-				mock.ExpectExec(`SELECT pg_advisory_xact_lock\(8105, hashtext\(\$1\)\)`).WithArgs("SPG-BJM-2612481").WillReturnResult(sqlmock.NewResult(0, 1))
 				if direction == movement.DirectionIn {
-					mock.ExpectQuery("SELECT out_destination, work_order_number, spp_number").WithArgs(int64(19)).
+					mock.ExpectQuery("SELECT out_destination, work_order_number, spp_number").WithArgs(int64(19), int64(72)).
 						WillReturnRows(sqlmock.NewRows([]string{"out_destination", "work_order_number", "spp_number"}).AddRow(movement.OutFillingShed, nil, "SPG-BJM-2612481"))
-				} else {
+				}
+				mock.ExpectExec(`SELECT pg_advisory_xact_lock\(8105, hashtext\(\$1\)\)`).WithArgs("SPG-BJM-2612481").WillReturnResult(sqlmock.NewResult(0, 1))
+				if direction == movement.DirectionOut {
 					mock.ExpectQuery("SELECT u.lambung_unit_id").WithArgs("SAMT072", "SPG-BJM-2612481").
 						WillReturnRows(sqlmock.NewRows([]string{"lambung_unit_id", "no_lambung", "no_polisi", "current_transaction_id", "direction", "in_category", "active_spp", "active_customer_id", "filling_shed_used", "spp_completed"}).
 							AddRow(72, "SAMT072", "MASTER PLATE", nil, "", "", nil, nil, false, false))

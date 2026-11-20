@@ -258,7 +258,7 @@ WHERE transaction_id = $1`)).
 	}
 }
 
-func TestValidateReturningSourceRequiresTheDepartureDocument(t *testing.T) {
+func TestValidateReturningSourceRequiresTheDepartureDocumentType(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock.New() error = %v", err)
@@ -274,13 +274,13 @@ func TestValidateReturningSourceRequiresTheDepartureDocument(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`
 SELECT out_destination, work_order_number, spp_number
 FROM movement_transactions
-WHERE transaction_id = $1 AND direction = 'OUT'`)).
-		WithArgs(int64(19)).
+WHERE transaction_id = $1 AND lambung_unit_id = $2 AND direction = 'OUT'`)).
+		WithArgs(int64(19), int64(7)).
 		WillReturnRows(sqlmock.NewRows([]string{"out_destination", "work_order_number", "spp_number"}).
 			AddRow(OutWorkshop, "WO-001", nil))
 	mock.ExpectRollback()
 
-	err = validateReturningSource(context.Background(), tx, 19, Input{Direction: DirectionIn, WorkOrderNumber: "WO-002"})
+	_, err = validateReturningSource(context.Background(), tx, 19, 7, Input{Direction: DirectionIn, SPPNumber: "SPP-002"})
 	if !errors.Is(err, ErrReturnDocumentMismatch) {
 		t.Fatalf("validateReturningSource() error = %v, want %v", err, ErrReturnDocumentMismatch)
 	}
@@ -454,8 +454,8 @@ func TestRecordCompletesCycleForReturningInMovement(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(`
 SELECT out_destination, work_order_number, spp_number
 FROM movement_transactions
-WHERE transaction_id = $1 AND direction = 'OUT'`)).
-		WithArgs(int64(19)).
+WHERE transaction_id = $1 AND lambung_unit_id = $2 AND direction = 'OUT'`)).
+		WithArgs(int64(19), int64(7)).
 		WillReturnRows(sqlmock.NewRows([]string{"out_destination", "work_order_number", "spp_number"}).
 			AddRow(OutWorkshop, "WO-001", nil))
 	mock.ExpectQuery(regexp.QuoteMeta(`
