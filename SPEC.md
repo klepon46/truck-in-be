@@ -153,6 +153,8 @@ Use explicit dependencies, context-aware database calls, parameterized SQL, UTC 
 
 ## Approved Change: Returning IN Matches Document Type And Unit, Not Number
 
+This supersedes earlier exact-number requirements for returning IN only; the six core project areas and all unrelated approved policies above remain applicable.
+
 - Permit WO-A OUT → WO-B IN and SPP-A OUT → SPP-B IN when the incoming document resolves to the same active master unit as the locked outgoing movement. WO uses upstream `vehicle_no`; SPP uses `unit_name`. Keep WO→WO/SPP→SPP; reject cross-type returns, different units, invalid/unavailable documents, and missing/corrupt departure identity. OTHER and first-IN behavior stay unchanged.
 - Apply only to returning IN. Upstream validation, WO police matching, SPP master-police policy, permissions, input/coordinate validation, transitions and original-reference hashes/replays remain enforced. No APP flag/payload, integration contract, configuration, dependency, or schema migration.
 - Preserve the original OUT audit row. Persist the document actually scanned on IN and close the same unit's original open cycle; `departureWorkOrderNumber`/`departureSppNumber` continue to expose the original OUT document. Snapshot, duration and cycle writes remain atomic.

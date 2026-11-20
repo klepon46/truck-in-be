@@ -168,7 +168,7 @@ Swagger shows every optional property in one combined schema. That is not a vali
 
 #### IN
 
-Use one category and exactly one arrival source: the returning WO, the returning SPP, or OTHER with selected driver and note. A returning IN must submit the same WO/SPP source and number used by its open OUT.
+Use one category and exactly one arrival source: WO, SPP, or OTHER with selected driver and note. Returning IN keeps the original OUT's source type and active master unit, but WO/SPP numbers may differ. WO `vehicle_no` and SPP `unit_name` must resolve to that unit; upstream/master and WO police validation remain enforced. IN stores the actual scanned document, while departure fields retain the original OUT document. This does not relax new-OUT eligibility; see [the returning-IN handover](mobile-returning-document-handover.md).
 
 ```json
 {

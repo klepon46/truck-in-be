@@ -55,7 +55,7 @@ HTTP `404`:
 | HTTP / kode | Makna dan tindakan |
 | --- | --- |
 | `404 UNIT_NOT_FOUND` | Dokumen ditemukan tetapi unit tidak tersedia di snapshot aktif, atau unit picker tidak tersedia saat submit. Hubungi operasional/master data; bukan WO/SPP tidak ditemukan. |
-| `422 DOCUMENT_VALIDATION_FAILED` | Data wajib dokumen tidak valid/tidak lengkap, unit/customer tidak cocok, polisi WO tidak cocok, atau dokumen IN tidak sesuai keberangkatan. Polisi SAOS tidak diwajibkan/dibandingkan untuk SPP; lookup/snapshot baru memakai master Unit Lambung. Tampilkan pesan BE, jangan bypass. |
+| `422 DOCUMENT_VALIDATION_FAILED` | Data wajib dokumen tidak valid/tidak lengkap, unit/customer tidak cocok sesuai aturan aksi, polisi WO tidak cocok, atau jenis sumber IN berbeda dari OUT. Nomor WO/SPP returning IN boleh berbeda bila jenis sumber/unit sama; ini tidak melonggarkan OUT. Polisi SAOS tidak diwajibkan/dibandingkan untuk SPP; lookup/snapshot baru memakai master Unit Lambung. Tampilkan pesan BE, jangan bypass. |
 | `422 INVALID_TRANSITION` | Status tidak lagi mengizinkan aksi; tawarkan pengecekan ulang untuk percobaan baru. |
 | `500 INTERNAL_ERROR` | Gangguan integrasi/database, timeout, autentikasi upstream, atau respons malformed. Jangan menyuruh satpam mengganti nomor seolah dokumen pasti tidak ada. Ini berbeda dari `401 UNAUTHORIZED` pengguna APP. |
 | `200` dengan `data.allowedOutDestinations: []` pada lookup SPP | Dokumen valid, tetapi tidak ada OUT baru yang eligible. Bukan dokumen tidak ditemukan; IN dan pending retry tidak diblokir oleh array ini. |

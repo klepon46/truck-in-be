@@ -76,7 +76,7 @@ Contoh returning IN Gantungan:
 }
 ```
 
-Kategori IN lain dan tujuan Customer tetap mengikuti aturan lama. Returning IN harus resolve ke nomor resmi SPP yang sama dengan departure. OUT lama yang tersimpan memakai `trans_no` tetap bisa ditutup memakai referensi baru yang resolve ke SPP itu; tidak ada perubahan audit/backfill.
+Kategori IN dan aturan tujuan Customer tetap berlaku. Returning IN boleh resolve ke nomor resmi SPP berbeda dari departure selama jenis sumber dan unit sama; keduanya tetap harus valid. IN menyimpan canonical hasil scan, sedangkan field departure tetap nomor OUT asli. OUT lama tetap bisa ditutup tanpa audit backfill. Ini tidak melonggarkan eligibility OUT/kelanjutan Servis; lihat [handover returning IN](mobile-returning-document-handover.md).
 
 Pilihan OUT tetap hanya dari `allowedOutDestinations`. `[]` bukan kegagalan lookup dan tidak memblokir returning IN. Jangan kirim array ini, customer, atau driver hasil dokumen pada request SPP. Koordinat tetap opsional satu string `latitude,longitude`.
 

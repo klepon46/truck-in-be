@@ -6,6 +6,8 @@ Support a genuine breakdown return: OUT SPP-A → IN Service → OUT Filling She
 
 Do not relabel Service as Gantungan, edit audit snapshots, or search arbitrary old OUT rows for justification. Existing Service history qualifies only through its own trustworthy completed same-unit cycle, matching canonical SPP and nonblank stable customer. Nullable legacy IN document/customer snapshots may use a consistent departure; contradictions or WO/driver identity conflicts fail closed. Customer display names are not identifiers.
 
+Returning IN now permits a different WO/SPP number for the same source type and unit, without an additional migration. Such an IN legitimately closes its original cycle but remains excluded from trusted same-SPP continuation when documents conflict. No OUT lifecycle is reassigned; existing completion rules remain in force. The application locks both original and incoming canonical SPP keys in deterministic numeric order before closure. See [returning-IN guidance](mobile-returning-document-handover.md).
+
 ## Database boundary
 
 Migration `000006_add_spp_service_continuations` adds:

@@ -42,7 +42,7 @@ Legacy Gantungan data without trustworthy cycle correlation fails closed with `[
 
 This lookup is shared by IN and OUT. A valid SPP for a unit currently OUT returns normal document data with `allowedOutDestinations: []`, so the app can still populate its returning-IN form.
 
-**Do not treat an empty OUT array as a failed document lookup, block IN because of it, or automatically switch the user's chosen direction.** Existing returning-IN document matching and category validation are still enforced on submit.
+**Do not treat an empty OUT array as a failed document lookup, block IN because of it, or automatically switch the user's chosen direction.** Returning IN matches source type and active master unit, not WO/SPP number; incoming document and category validation still apply. An accepted different-SPP IN does not change trusted continuation requirements or automatically make either SPP eligible for OUT. See [returning-IN guidance](mobile-returning-document-handover.md).
 
 UnitLog records only pool-boundary crossings. A direct `Pool → Filling Shed → Customer → Pool` journey still records one Filling Shed OUT and the returning IN; there is no extra Customer OUT outside the pool.
 

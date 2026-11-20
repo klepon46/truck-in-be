@@ -15,6 +15,7 @@ OUT transaction #123, cycle #50
 - The next valid `IN` for that unit closes the open cycle and returns the same `cycleId`.
 - A unit's first-ever `IN` is allowed but has `cycleId: null`, because there is no recorded departure to pair with it.
 - A returning `IN` includes the linked departure transaction and its WO/SPP values when applicable.
+- Returning IN keeps the OUT source type and unit, but its scanned WO/SPP number can differ. `workOrderNumber`/`sppNumber` describe that IN; `departureWorkOrderNumber`/`departureSppNumber` remain the original OUT document. Never overwrite one with the other. See [the returning-IN handover](mobile-returning-document-handover.md).
 
 ## API Response Fields
 

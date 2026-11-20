@@ -110,9 +110,9 @@ UnitLog records only crossings of the pool boundary; it does not record movement
 }
 ```
 
-A returning IN must scan and submit the **same document number and source type** as the unit's open OUT. An OUT with WO requires the same WO; an OUT with SPP requires the same SPP. A different WO/SPP, or OTHER used to bypass a document departure, receives `422 DOCUMENT_VALIDATION_FAILED`.
+A returning IN must keep the **same source type and unit** as the unit's open OUT: WO→WO, SPP→SPP, OTHER→OTHER. The WO/SPP number may differ. BE validates the scanned WO `vehicle_no` / SPP `unit_name` against the same active master unit and checks ownership of the original departure. Cross-type returns, another vehicle, invalid upstream documents, or OTHER used to bypass a document departure still fail. WO police validation remains unchanged.
 
-For SPP, this equality is checked on the canonical `trans_no` resolved from the reference. An existing pre-cutover SPP OUT can return using a new-format reference resolving to the same document; do not rewrite history or guess the reference from a displayed canonical number.
+For SPP, the IN stores the canonical `trans_no` resolved from its actual scanned reference, even when different from OUT. The same open cycle closes, but the original OUT and its departure fields keep the original document. Do not rewrite history or guess a reference from a displayed canonical number. Accepting IN does not grant new OUT/Service continuation eligibility; mismatched SPPs remain excluded from trusted continuation. See [the returning-IN handover](mobile-returning-document-handover.md).
 
 ### OTHER in Either Direction
 

@@ -66,7 +66,7 @@ Kategori IN lainnya tetap sesuai kontrak yang sudah berlaku. Contoh ini bukan iz
 
 - Unit harus lolos validasi snapshot aktif dan transisi harus sah; IN → IN dan OUT → OUT tetap ditolak.
 - OTHER OUT tidak dapat melewati aturan Gantungan yang hanya mengizinkan OUT Customer dengan SPP aktif.
-- Returning IN dari keberangkatan WO/SPP tetap membutuhkan dokumen yang sama; OTHER tidak dapat dipakai sebagai bypass.
+- Returning IN dari keberangkatan WO/SPP tetap membutuhkan jenis sumber dan unit yang sama; nomor WO/SPP boleh berbeda. OTHER tidak dapat dipakai sebagai bypass. Lihat [aturan returning IN](mobile-returning-document-handover.md).
 - WO/SPP tetap divalidasi melalui integrasinya. Flag ini tidak memengaruhi lookup, eligibility SPP, atau customer.
 - Idempotency, atomic commit/rollback, cycle, durasi, koordinat, permission, dan snapshot audit tetap berjalan.
 - `422 VALIDATION_ERROR`, `422 INVALID_TRANSITION`, `422 DOCUMENT_VALIDATION_FAILED`, `404 UNIT_NOT_FOUND`, dan `409 IDEMPOTENCY_CONFLICT` tetap harus ditangani sesuai kontrak. Bypass bukan jaminan submit selalu berhasil.

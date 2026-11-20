@@ -54,7 +54,7 @@ Content-Type: application/json
 }
 ```
 
-Pilih `CUSTOMER` bila ditawarkan dan sesuai perjalanan. Returning Servis memakai `direction: "IN"`, `inCategory: "SERVICE_AND_REPAIR_MAINTENANCE"`, tanpa `outDestination`; SPP wajib cocok dengan OUT terkait.
+Pilih `CUSTOMER` bila ditawarkan dan sesuai perjalanan. Returning Servis memakai `direction: "IN"`, `inCategory: "SERVICE_AND_REPAIR_MAINTENANCE"`, tanpa `outDestination`. Returning IN boleh memakai SPP berbeda selama jenis sumber dan unit sama, tetapi kelanjutan OUT Servis tetap membutuhkan korelasi canonical SPP/customer yang konsisten dengan OUT terkait. Menerima IN tidak otomatis mengizinkan OUT baru. Lihat [aturan returning IN](mobile-returning-document-handover.md).
 
 Jangan kirim flag continuation, source transaction ID, `allowedOutDestinations`, customer/driver hasil dokumen, atau cycle ID. Koordinat tetap opsional; polisi berasal dari master Unit Lambung. Payload WO/OTHER tidak berubah.
 
@@ -66,4 +66,4 @@ Untuk percobaan baru, tangani `422 INVALID_TRANSITION`, `422 DOCUMENT_VALIDATION
 
 Operator menerapkan migration **000006**, lalu BE ini, sebelum mengandalkan flow baru. Tidak ada permission/konfigurasi/upstream baru. APP yang sudah mendukung daftar tujuan dinamis cukup menampilkan dua pilihan, tanpa request baru.
 
-Uji pada environment nonproduksi: flow contoh, Servis berulang, Customer langsung setelah Servis, customer/unit/SPP salah ditolak, Kosongan tidak menghidupkan SPP lama, IN dengan `[]`, serta retry setelah timeout. Jangan membuat movement live tanpa persetujuan.
+Uji pada environment nonproduksi: flow contoh, Servis berulang, Customer langsung setelah Servis, customer/unit/SPP tidak sesuai ditolak untuk kelanjutan OUT, Kosongan tidak menghidupkan SPP lama, returning IN dengan `[]`/SPP berbeda pada unit sama, serta retry setelah timeout. Jangan membuat movement live tanpa persetujuan.

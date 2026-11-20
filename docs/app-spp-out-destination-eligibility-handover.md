@@ -102,7 +102,7 @@ Endpoint lookup dipakai bersama untuk IN dan OUT. Unit yang sedang OUT dapat men
 
 Ini **bukan kegagalan lookup** dan **bukan alasan memblokir returning IN**. Tetap isi data unit/driver/customer dan lanjutkan form IN. Jangan otomatis mengganti arah yang dipilih pengguna.
 
-Returning IN tetap harus memakai SPP yang sama dengan OUT keberangkatannya. BE memvalidasi hal ini saat submit.
+Returning IN tetap memakai jenis sumber SPP dan unit yang sama, tetapi nomor SPP boleh berbeda dari OUT. BE memvalidasi dokumen/unit saat submit dan menyimpan dokumen IN terpisah dari departure asli. Ini tidak memberi izin OUT berikutnya: aturan SPP aktif/customer/continuation tetap berlaku. Lihat [handover returning IN](mobile-returning-document-handover.md).
 
 ## 7. Submit Movement Tetap Menggunakan Kontrak Lama
 

@@ -49,6 +49,8 @@ An `IN` movement requires exactly one category:
 
 Service continuation requires migration **000006** before this BE. APP payloads/permissions are unchanged; use the existing `allowedOutDestinations` array. See [APP guidance](docs/mobile-spp-service-continuation-handover.md) and [migration/rollback operations](docs/spp-service-continuation-operations.md).
 
+Returning IN now matches the original OUT's **source type and unit, not its document number**: WO-A → WO-B and SPP-A → SPP-B are permitted for the same active unit. Upstream/master validation stays enforced; the original OUT/cycle departure document is not rewritten. This does not relax OUT/lifecycle/continuation rules or require another migration. See [the returning-IN APP handover](docs/mobile-returning-document-handover.md).
+
 ### OUT
 
 | Destination | Required input | Driver source | Notes |
