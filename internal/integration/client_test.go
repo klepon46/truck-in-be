@@ -173,7 +173,7 @@ func TestWorkshopRejectsUnsuccessfulResponse(t *testing.T) {
 
 func TestActiveDriversUsesSwaggerContract(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/internal/v1/active-drivers" {
+		if request.URL.Path != "/internal/v2/active-drivers" {
 			t.Errorf("request path = %q", request.URL.Path)
 			return
 		}
