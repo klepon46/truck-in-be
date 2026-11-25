@@ -39,7 +39,7 @@ func TestOtherSubmitDriverBypassKeepsPickerAndMovementRules(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var pickerCalls, submitChecks atomic.Int32
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != "/work-orders/v2/active-drivers" || r.Header.Get("Authorization") != "Bearer test-driver-token" {
+				if r.URL.Path != "/internal/v1/active-drivers" || r.Header.Get("Authorization") != "Bearer test-driver-token" {
 					t.Error("Driver integration path or service token changed")
 				}
 				switch r.URL.Query().Get("name") {

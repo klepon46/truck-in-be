@@ -178,7 +178,7 @@ func (c *Client) ActiveDrivers(ctx context.Context, name string) ([]ActiveDriver
 			ResignDate *string         `json:"resignDate"`
 		} `json:"data"`
 	}
-	path := "/work-orders/v2/active-drivers?name=" + url.QueryEscape(name)
+	path := "/internal/v1/active-drivers?name=" + url.QueryEscape(name)
 	if err := c.getJSON(ctx, c.config.DriverBaseURL, c.config.DriverToken, path, &response); err != nil {
 		return nil, err
 	}

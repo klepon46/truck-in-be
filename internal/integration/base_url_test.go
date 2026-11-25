@@ -42,7 +42,7 @@ func TestIntegrationRequestsPreserveServiceBasePaths(t *testing.T) {
 				url.Values{"id": {"123"}, "owner": {owner}}, func(c *Client) error { _, err := c.SPP(context.Background(), "123-"+owner); return err }},
 			{"Workshop", "/internal/v1/work-orders/by-wo", "workshop-test-token", `{"success":true,"data":{"work_order_number":"` + wo + `","vehicle_no":"SAMT119","police_no":"DA 1234 AB","driver_name":"Driver"}}`,
 				url.Values{"wo-number": {wo}}, func(c *Client) error { _, err := c.Workshop(context.Background(), wo); return err }},
-			{"Driver", "/work-orders/v2/active-drivers", "driver-test-token", `{"success":true,"data":[{"id":42,"driverName":"` + driver + `"}]}`,
+			{"Driver", "/internal/v1/active-drivers", "driver-test-token", `{"success":true,"data":[{"id":42,"driverName":"` + driver + `"}]}`,
 				url.Values{"name": {driver}}, func(c *Client) error { return c.Driver(context.Background(), 42, driver) }},
 		} {
 			t.Run(base.name+"/"+test.name, func(t *testing.T) {
